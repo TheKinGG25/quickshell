@@ -72,8 +72,11 @@ ShellRoot {
 
     // ── Timers ──
     Timer {
-        interval: 500; running: true; repeat: true
-        onTriggered: desktopProcess.running = true
+        interval: 200; running: true; repeat: true
+        onTriggered: {
+            desktopProcess.running = false
+            desktopProcess.running = true
+        }
     }
 
     Timer {
