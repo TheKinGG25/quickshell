@@ -1,29 +1,25 @@
 import QtQuick
 import Quickshell.Io
-import QtQuick.Layouts
 
-RowLayout {
+Row {
     property var root
-    spacing: 0
+    spacing: 20
 
     Repeater {
         model: 4
-        delegate: Item {
-            Layout.preferredWidth: text_element.implicitWidth + 24
-            Layout.fillHeight: true
-
-            Text {
-                id: text_element
-                anchors.centerIn: parent
-                text: index + 1
-                color: (index + 1) === root.currentDesktop ? "#ffffff" : "#666666"
-                font.pixelSize: root.fontSize
-                font.family: root.fontFamily
-                font.bold: (index + 1) === root.currentDesktop
-            }
+        delegate: Text {
+            id: text_element
+            text: index + 1
+            color: (index + 1) === root.currentDesktop ? "#ffffff" : "#666666"
+            font.pixelSize: root.fontSize
+            font.family: root.fontFamily
+            font.bold: (index + 1) === root.currentDesktop
 
             MouseArea {
-                anchors.fill: parent
+                // Expand click area by half the spacing on each side
+                anchors.centerIn: parent
+                width: parent.width + 20
+                height: 30
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     root.currentDesktop = index + 1
