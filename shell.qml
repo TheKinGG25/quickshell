@@ -17,8 +17,21 @@ ShellRoot {
     property bool headphonesActive: false
     property int batteryLevel: 80
     property string batteryStatus: "Discharging"
+    property var appVolumes: []
 
     // ── Processes ──
+    Process {
+        id: appVolumesProcess
+        command: ["python3", "/home/thekingg/.config/quickshell/scripts/app-volumes.py"]
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    appVolumes = JSON.parse(data)
+                } catch(e) {}
+            }
+        }
+    }
+
     Process {
         id: desktopProcess
         command: ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-desktop.py"]
@@ -86,6 +99,7 @@ ShellRoot {
             sinkProcess.running = true
             batteryLevelProcess.running = true
             batteryStatusProcess.running = true
+            appVolumesProcess.running = true
         }
     }
 
