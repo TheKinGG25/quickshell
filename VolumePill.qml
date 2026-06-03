@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     property var root
+    property var screen
 
     property color pillColor: root.volumeMuted      ? "#555555" :
                               root.headphonesActive ? "#b57bac" : "#7b8fb5"
@@ -54,7 +55,7 @@ Rectangle {
             else if (mouse.button === Qt.MiddleButton)
                 btToggleProcess.running = true
             else if (mouse.button === Qt.LeftButton)
-            	root.volumeSliderVisible = !root.volumeSliderVisible
+            	root.activeVolumeScreen = (root.activeVolumeScreen === screen ? null : screen)
         }
         onWheel: wheel => {
             if (wheel.angleDelta.y > 0) volUpProcess.running = true

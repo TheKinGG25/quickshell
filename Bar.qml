@@ -29,7 +29,10 @@ PanelWindow {
 
             Item { Layout.fillWidth: true }
 
-            Right { root: barWindow.root }
+            Right { 
+                root: barWindow.root 
+                screen: barWindow.screen
+            }
         }
     }
 }

@@ -4,11 +4,11 @@ import Quickshell.Io
 import QtQuick
 
 ShellRoot {
-	id: root
+    id: shellRoot
     // ── Global constants ──
     property string fontFamily: "JetBrainsMono Nerd Font"
     property int fontSize: 16
-    property bool volumeSliderVisible: false
+    property var activeVolumeScreen: null
 
     // ── Shared state ──
     property int currentDesktop: 1
@@ -26,7 +26,10 @@ ShellRoot {
         stdout: SplitParser {
             onRead: data => {
                 try {
-                    appVolumes = JSON.parse(data)
+                    var newVols = JSON.parse(data);
+                    if (JSON.stringify(newVols) !== JSON.stringify(appVolumes)) {
+                        appVolumes = newVols;
+                    }
                 } catch(e) {}
             }
         }
@@ -99,7 +102,15 @@ ShellRoot {
             sinkProcess.running = true
             batteryLevelProcess.running = true
             batteryStatusProcess.running = true
-            appVolumesProcess.running = true
+        }
+    }
+
+    Timer {
+        interval: 1000; running: true; repeat: true
+        onTriggered: {
+            // Only poll app volumes every second to prevent UI stutter
+            if (!root.activeVolumeScreen)
+                appVolumesProcess.running = true
         }
     }
 
@@ -109,8 +120,24 @@ ShellRoot {
         sinkProcess.running = true
         batteryLevelProcess.running = true
         batteryStatusProcess.running = true
+        appVolumesProcess.running = true
     }
 
-    Bar { root: root }
-    VolumeSlider { root: root }
+    Variants {
+        model: Quickshell.screens
+        Bar {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        VolumeSlider {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
 }
