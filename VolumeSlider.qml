@@ -10,42 +10,62 @@ PanelWindow {
     property var root
 
     anchors { top: true; right: true }
-    margins.top: 0 // Adjusted to give a bit of "hover buffer" above the window
+    margins.top: 0
     margins.right: 0
-    width: 300 // Wider than visible part for hover buffer
-    height: contentColumn.implicitHeight + 60 // Taller for hover buffer
+    width: 320
+    height: contentColumn.implicitHeight + 80
     color: "transparent"
     visible: root.volumeSliderVisible
     
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-    // Large hover area to prevent accidental hiding and provide a buffer
+    // Large hover area to prevent accidental hiding
     MouseArea {
-        id: hoverArea
         anchors.fill: parent
         hoverEnabled: true
-
-        // This prevents the window from closing when the mouse is anywhere in the 300px wide area
         onExited: {
             root.volumeSliderVisible = false
         }
 
-        // The visible container
+        // DEBUG SHAPE: Visualizes the area that keeps the window open
+        Rectangle {
+            anchors.fill: parent
+            color: "#44ff0000" // Transparent red
+            border.color: "red"
+            border.width: 1
+            z: -1
+
+            Text {
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+                text: "DEBUG: Hover Area"
+                color: "red"
+                font.pixelSize: 10
+            }
+        }
+
+        // Visible container
         Rectangle {
             width: 260
             height: contentColumn.implicitHeight + 20
-            anchors.centerIn: parent
+            // Positioned exactly at the bottom of the 30px bar
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 0
+            anchors.rightMargin: 0
+
             radius: 12
             color: "#DD11111b"
             border.color: "#313244"
             border.width: 1
 
-            // Prevent clicks in the box from closing it (if we were using onClicked)
+            // Catch events inside the visible box
             MouseArea {
                 anchors.fill: parent
                 hoverEnabled: true
-                // Do nothing, just catch hover so parent doesn't lose it
+                propagateComposedEvents: true
+                onPressed: (mouse) => mouse.accepted = false
             }
 
             ColumnLayout {
