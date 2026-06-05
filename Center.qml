@@ -12,6 +12,8 @@ MouseArea {
     onClicked: (mouse) => {
         if (mouse.button === Qt.MiddleButton) {
             root.activePowerScreen = (root.activePowerScreen === screen ? null : screen)
+        } else if (mouse.button === Qt.LeftButton) {
+            root.activeWindowScreen = (root.activeWindowScreen === screen ? null : screen)
         }
     }
 

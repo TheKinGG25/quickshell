@@ -19,8 +19,30 @@ ShellRoot {
     property int batteryLevel: 80
     property string batteryStatus: "Discharging"
     property var appVolumes: []
+    property var windows: []
+    property var activeWindowScreen: null
+    onActiveWindowScreenChanged: {
+        if (activeWindowScreen) windowsProcess.running = true
+    }
 
     // ── Processes ──
+    Process {
+        id: windowsProcess
+        command: ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-windows.py"]
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    var newWins = JSON.parse(data);
+                    // Filter out desktop selectors (id starts with 8_) and windows with empty titles
+                    newWins = newWins.filter(w => !w.id.startsWith("8_") && w.title.length > 0);
+                    if (JSON.stringify(newWins) !== JSON.stringify(windows)) {
+                        windows = newWins;
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+
     Process {
         id: appVolumesProcess
         command: ["python3", "/home/thekingg/.config/quickshell/scripts/app-volumes.py"]
@@ -112,6 +134,9 @@ ShellRoot {
             // Only poll app volumes every second to prevent UI stutter
             if (!shellRoot.activeVolumeScreen)
                 appVolumesProcess.running = true
+            
+            if (shellRoot.activeWindowScreen)
+                windowsProcess.running = true
         }
     }
 
@@ -122,6 +147,7 @@ ShellRoot {
         batteryLevelProcess.running = true
         batteryStatusProcess.running = true
         appVolumesProcess.running = true
+        windowsProcess.running = true
     }
 
     Variants {
@@ -145,6 +171,15 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
         PowerMenu {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        WindowMenu {
             required property var modelData
             root: shellRoot
             screen: modelData
