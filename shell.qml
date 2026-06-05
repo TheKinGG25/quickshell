@@ -9,6 +9,7 @@ ShellRoot {
     property string fontFamily: "JetBrainsMono Nerd Font"
     property int fontSize: 16
     property var activeVolumeScreen: null
+    property var activePowerScreen: null
 
     // ── Shared state ──
     property int currentDesktop: 1
@@ -109,7 +110,7 @@ ShellRoot {
         interval: 1000; running: true; repeat: true
         onTriggered: {
             // Only poll app volumes every second to prevent UI stutter
-            if (!root.activeVolumeScreen)
+            if (!shellRoot.activeVolumeScreen)
                 appVolumesProcess.running = true
         }
     }
@@ -135,6 +136,15 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
         VolumeSlider {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        PowerMenu {
             required property var modelData
             root: shellRoot
             screen: modelData

@@ -1,7 +1,24 @@
 import QtQuick
+import QtQuick.Layouts
 
-Row {
-    spacing: 8
+MouseArea {
+    id: centerArea
+    property var root
+    property var screen
+    implicitWidth: contentRow.implicitWidth + 20
+    Layout.fillHeight: true
+    acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+
+    onClicked: (mouse) => {
+        if (mouse.button === Qt.MiddleButton) {
+            root.activePowerScreen = (root.activePowerScreen === screen ? null : screen)
+        }
+    }
+
+    Row {
+        id: contentRow
+        spacing: 8
+        anchors.centerIn: parent
 
     Canvas {
         id: clockArc
@@ -65,4 +82,5 @@ Row {
             Qt.formatTime(new Date(), "hh:mm:ss AP") + " | " +
             Qt.formatDate(new Date(), "dddd - dd/MM/yy")
     }
+}
 }

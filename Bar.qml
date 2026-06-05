@@ -25,7 +25,11 @@ PanelWindow {
 
             Item { Layout.fillWidth: true }
 
-            Center {}
+            Center { 
+                root: barWindow.root 
+                screen: barWindow.screen
+                Layout.fillHeight: true
+            }
 
             Item { Layout.fillWidth: true }
 
