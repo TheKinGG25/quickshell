@@ -33,15 +33,6 @@ MouseArea {
     hoverEnabled: true
     onExited: root.activePowerScreen = null
 
-    // Debug area: semi-transparent blue to see the hit zone
-    Rectangle {
-        anchors.fill: parent
-        color: "blue"
-        opacity: 0.1
-        border.color: "blue"
-        border.width: 1
-    }
-
     Rectangle {
         width: contentRow.implicitWidth + 40
         height: contentRow.implicitHeight + 40

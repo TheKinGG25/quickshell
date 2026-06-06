@@ -3,6 +3,19 @@ import subprocess
 import re
 import json
 import sys
+import os
+
+# Load icon mappings from config
+def load_icon_config():
+    config_path = os.path.join(os.path.dirname(__file__), "icons.json")
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            return config.get("iconMappings", {})
+    except:
+        return {}
+
+icon_mappings = load_icon_config()
 
 def get_window_info(uuid):
     try:
@@ -15,7 +28,7 @@ def get_window_info(uuid):
                 key, val = line.split(":", 1)
                 info[key.strip()] = val.strip()
         return info
-    except:
+    except Exception as e:
         return {}
 
 def get_windows():
@@ -29,47 +42,114 @@ def get_windows():
 
     windows_dict = {}
     
-    # Split by the entry prefix
-    entries = raw.split("[Argument: (sssida{sv})")
-    for entry in entries[1:]:
-        # Parse fields: "id", "text", "icon", type, relevance, [Argument: a{sv} {props}]
-        # Simplified regex for each entry
-        m = re.search(r'^ "([^"]+)", "([^"]+)", "([^"]*)", (\d+), ([0-9.]+), \[Argument: a\{sv\} \{(.*)\}\]', entry.strip())
-        if not m:
+    # Find all window entries - each starts with [Argument: (sssida{sv})
+    # Split by this marker to get individual windows
+    entries = re.split(r'\[Argument: \(sssida\{sv\}\)', raw)
+    
+    for entry in entries[1:]:  # Skip the first one (before the first split)
+        # Try to extract the first string which is the window ID
+        id_match = re.match(r'\s*"([^"]+)"', entry)
+        if not id_match:
             continue
             
-        win_id, win_text, icon, type_id, relevance, props = m.groups()
+        win_id = id_match.group(1)
         
-        if win_id.startswith("8_"): # Skip desktop selectors
+        if win_id.startswith("8_"):  # Skip desktop selectors
             continue
             
         if win_id in windows_dict:
             continue
+        
+        # Extract: id, title, icon, type, relevance using a simpler approach
+        # Pattern: "id", "title", "icon", type_number, relevance, ...
+        m = re.match(r'\s*"([^"]+)",\s*"([^"]*)",\s*"([^"]*)",\s*(\d+),\s*([0-9.]+)', entry)
+        if not m:
+            continue
             
-        # Match desktop
-        desktop = 0
-        desktop_match = re.search(r'Activate running window on Desktop (\d+)', props)
-        if desktop_match:
-            desktop = int(desktop_match.group(1))
+        win_id, win_text, icon, type_id, relevance = m.groups()
+        
+        # Skip empty titles
+        if not win_text.strip():
+            continue
         
         # Get more info for App Name
         uuid = win_id.split("_", 1)[-1] if "_" in win_id else win_id
-        # Remove curly braces if present
         uuid_clean = uuid.strip("{}")
-        info = get_window_info(uuid)
+        info = get_window_info(uuid_clean)
         
-        app_name = info.get("resourceClass", "")
+        # Extract desktop from subtext field
+        desktop = 0
+        subtext_match = re.search(r'"subtext"\s*=\s*\[Variant\(QString\):\s*"([^"]*)"', entry)
+        if subtext_match:
+            subtext = subtext_match.group(1)
+            desktop_match = re.search(r'Desktop (\d+)', subtext)
+            if desktop_match:
+                desktop = int(desktop_match.group(1))
+        
+        # Fallback: try to get from window info
+        if desktop == 0 and "desktops" in info:
+            try:
+                desktops = info.get("desktops", "").strip()
+                if desktops:
+                    desktop_list = re.findall(r'\d+', desktops)
+                    if desktop_list:
+                        desktop = int(desktop_list[0]) + 1
+            except:
+                pass
+        
+        # Get app name and clean it up
+        app_name = info.get("resourceClass", "").strip()
         if not app_name or app_name.lower() == "wayland":
-            app_name = info.get("desktopFile", icon)
+            app_name = info.get("desktopFile", icon).strip() if icon else ""
             
-        if app_name and app_name.islower():
-            app_name = app_name.capitalize()
+        # Get icon name - try multiple sources
+        icon_name = ""
+        
+        # First try windowIcon from KWin info
+        if info.get("windowIcon", "").strip():
+            icon_name = info.get("windowIcon", "").strip()
+        
+        # Try resourceClass (often org.kde.dolphin, com.github.GitCredentialManager, etc.)
+        if not icon_name and app_name:
+            icon_name = app_name
+        
+        # If icon_name has dots, try to extract just the app part or the full name
+        if not icon_name and info.get("resourceClass", ""):
+            icon_name = info.get("resourceClass", "").strip()
+        
+        # Final fallback to parsed icon
+        if not icon_name and icon and icon != "wayland":
+            icon_name = icon
+            
+        # Clean up app name formatting for display
+        display_name = app_name
+        if display_name:
+            # Convert "org.kde.dolphin" to "Dolphin" or keep "Code" as is
+            if "." in display_name:
+                display_name = display_name.split(".")[-1]  # Get the last part
+            if display_name and display_name.islower():
+                display_name = display_name.capitalize()
+
+        if not display_name:
+            display_name = win_text
+
+        # Try to find mapped icon from config
+        mapped_icon = None
+        if display_name in icon_mappings:
+            mapped_icon = icon_mappings[display_name]
+        elif app_name in icon_mappings:
+            mapped_icon = icon_mappings[app_name]
+        elif icon_name in icon_mappings:
+            mapped_icon = icon_mappings[icon_name]
+        
+        final_icon = mapped_icon if mapped_icon else icon_name
 
         windows_dict[win_id] = {
             "id": win_id,
             "title": win_text,
-            "app": app_name if app_name else win_text,
-            "icon": icon if icon else "wayland",
+            "app": display_name,
+            "icon": final_icon,
+            "resourceClass": app_name,
             "desktop": desktop
         }
         

@@ -26,6 +26,16 @@ ShellRoot {
     }
 
     // ── Processes ──
+    Timer {
+        id: windowsUpdateTimer
+        interval: 500  // Update every 500ms
+        running: root.activeWindowScreen !== null
+        repeat: true
+        onTriggered: {
+            windowsProcess.running = true
+        }
+    }
+    
     Process {
         id: windowsProcess
         command: ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-windows.py"]
@@ -35,8 +45,19 @@ ShellRoot {
                     var newWins = JSON.parse(data);
                     // Filter out desktop selectors (id starts with 8_) and windows with empty titles
                     newWins = newWins.filter(w => !w.id.startsWith("8_") && w.title.length > 0);
-                    if (JSON.stringify(newWins) !== JSON.stringify(windows)) {
-                        windows = newWins;
+                    
+                    // Remove duplicates based on ID
+                    var uniqueWins = [];
+                    var seenIds = {};
+                    for (var i = 0; i < newWins.length; i++) {
+                        if (!seenIds[newWins[i].id]) {
+                            uniqueWins.push(newWins[i]);
+                            seenIds[newWins[i].id] = true;
+                        }
+                    }
+
+                    if (JSON.stringify(uniqueWins) !== JSON.stringify(windows)) {
+                        windows = uniqueWins;
                     }
                 } catch(e) {}
             }

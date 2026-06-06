@@ -9,6 +9,9 @@ PanelWindow {
     id: windowMenu
     property var root
     property int selectedDesktop: root ? root.currentDesktop : 1
+    property var editingApp: null
+    property bool editDialogOpen: false
+    property bool shouldShowMenu: false
 
     anchors { top: true; left: true; right: true }
     margins.top: 0
@@ -20,7 +23,7 @@ PanelWindow {
     implicitHeight: 500
 
     color: "transparent"
-    visible: root && root.activeWindowScreen === screen
+    visible: shouldShowMenu && !editDialogOpen
 
     onVisibleChanged: {
         if (visible && root) {
@@ -28,15 +31,26 @@ PanelWindow {
         }
     }
 
+    Connections {
+        target: root
+        function onActiveWindowScreenChanged() {
+            windowMenu.shouldShowMenu = (root.activeWindowScreen === screen)
+        }
+    }
+
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     WlrLayershell.namespace: "quickshell-windowmenu"
     WlrLayershell.exclusiveZone: -1
 
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        onExited: root.activeWindowScreen = null
+        onExited: {
+            if (!windowMenu.editDialogOpen) {
+                windowMenu.shouldShowMenu = false
+            }
+        }
 
         Rectangle {
             width: parent.width - 40
@@ -98,56 +112,91 @@ PanelWindow {
                     ListView {
                         id: windowListView
                         model: {
-                            if (!root) return [];
-                            return root.windows.filter(w => w.desktop === windowMenu.selectedDesktop);
+                            if (!root || !root.windows) return [];
+                            var filtered = root.windows.filter(w => w && w.desktop === windowMenu.selectedDesktop);
+                            return filtered;
                         }
                         spacing: 5
+                        focus: false
+                        currentIndex: -1
+                        
                         delegate: ItemDelegate {
                             id: windowDelegate
                             width: windowListView.width - 20
                             height: 48
-                            onClicked: {
-                                runProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-windows.py", modelData.id]
-                                runProcess.running = true
-                                root.activeWindowScreen = null
-                            }
                             
                             contentItem: RowLayout {
                                 spacing: 12
                                 
                                 Image {
-                                    source: "image://icon/" + modelData.icon
+                                    source: {
+                                        if (!modelData || !modelData.icon) return "";
+                                        var iconName = modelData.icon;
+                                        // Try different icon loading strategies
+                                        if (iconName.startsWith("org.kde.")) {
+                                            return "image://icon/" + iconName.split(".").pop();
+                                        }
+                                        return "image://icon/" + iconName;
+                                    }
                                     Layout.preferredWidth: 24
                                     Layout.preferredHeight: 24
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
+                                    onStatusChanged: {
+                                        if (status === Image.Error) {
+                                            // Try alternative icon names if first fails
+                                            if (modelData && modelData.resourceClass) {
+                                                var parts = modelData.resourceClass.split(".");
+                                                if (parts.length > 1) {
+                                                    source = "image://icon/" + parts[parts.length - 1];
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 
-                                ColumnLayout {
-                                    spacing: 2
-                                    Text {
-                                        text: modelData.app
-                                        color: "#cdd6f4"
-                                        font.bold: true
-                                        font.family: root.fontFamily
-                                        font.pixelSize: 14
-                                        Layout.fillWidth: true
-                                        elide: Text.ElideRight
-                                    }
-                                    Text {
-                                        text: modelData.title
-                                        color: "#a6adc8"
-                                        font.family: root.fontFamily
-                                        font.pixelSize: 11
-                                        Layout.fillWidth: true
-                                        elide: Text.ElideRight
-                                        visible: modelData.title !== modelData.app
-                                    }
+                                Text {
+                                    text: modelData && modelData.app ? modelData.app : "Unknown App"
+                                    color: "#cdd6f4"
+                                    font.bold: true
+                                    font.family: root.fontFamily
+                                    font.pixelSize: 14
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
                                 }
                             }
                             background: Rectangle {
-                                color: windowDelegate.hovered ? "#313244" : "transparent"
+                                color: windowListView.currentIndex === index ? "#313244" : (windowDelegate.hovered ? "#1e1e2e" : "transparent")
                                 radius: 8
+                            }
+                            
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onEntered: {
+                                    windowListView.currentIndex = index
+                                    windowListView.focus = true
+                                }
+                                onExited: {
+                                    windowListView.focus = false
+                                }
+                                onClicked: (mouse) => {
+                                    windowListView.currentIndex = index;
+                                    if (mouse.button === Qt.RightButton) {
+                                        windowMenu.editingApp = modelData;
+                                        windowMenu.editDialogOpen = true;
+                                        editIconInput.text = modelData.icon || "";
+                                        editAppInput.text = modelData.app || "";
+                                        editIconInput.forceActiveFocus();
+                                    } else if (mouse.button === Qt.LeftButton) {
+                                        if (modelData && modelData.id) {
+                                            runProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-windows.py", modelData.id]
+                                            runProcess.running = true
+                                            root.activeWindowScreen = null
+                                        }
+                                    }
+                                }
                             }
                         }
                         
@@ -166,4 +215,158 @@ PanelWindow {
     }
     
     Process { id: runProcess }
+    Process { id: saveConfigProcess }
+
+    // Separate floating dialog window
+    ShellWindow {
+    id: editDialogWindow
+    visible: windowMenu.editDialogOpen
+    width: 450
+    height: 450
+    x: (screen.width - width) / 2
+    y: Math.max(20, (screen.height - height) / 2)
+    
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.namespace: "quickshell-editdialog"
+    
+    Rectangle {
+        anchors.fill: parent
+        radius: 12
+        color: "#11111b"
+        border.color: "#313244"
+        border.width: 1
+        
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+        }
+        
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 15
+            
+            Text {
+                text: "Edit App Icon & Name"
+                color: "#cdd6f4"
+                font.bold: true
+                font.family: root ? root.fontFamily : "JetBrainsMono Nerd Font"
+                font.pixelSize: 16
+                Layout.fillWidth: true
+            }
+            
+            ColumnLayout {
+                spacing: 8
+                Layout.fillWidth: true
+                
+                Text {
+                    text: "Icon:"
+                    color: "#a6adc8"
+                    font.family: root ? root.fontFamily : "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                }
+                
+                TextField {
+                    id: editIconInput
+                    Layout.fillWidth: true
+                    background: Rectangle {
+                        color: "#1e1e2e"
+                        border.color: "#313244"
+                        border.width: 1
+                        radius: 4
+                    }
+                    color: "#cdd6f4"
+                    font.family: root ? root.fontFamily : "JetBrainsMono Nerd Font"
+                }
+            }
+            
+            ColumnLayout {
+                spacing: 8
+                Layout.fillWidth: true
+                
+                Text {
+                    text: "Display Name:"
+                    color: "#a6adc8"
+                    font.family: root ? root.fontFamily : "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                }
+                
+                TextField {
+                    id: editAppInput
+                    Layout.fillWidth: true
+                    background: Rectangle {
+                        color: "#1e1e2e"
+                        border.color: "#313244"
+                        border.width: 1
+                        radius: 4
+                    }
+                    color: "#cdd6f4"
+                    font.family: root ? root.fontFamily : "JetBrainsMono Nerd Font"
+                    Keys.onReturnPressed: {
+                        if (windowMenu.editingApp) {
+                            var mapKey = windowMenu.editingApp.app || windowMenu.editingApp.resourceClass || windowMenu.editingApp.id;
+                            saveConfigProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/save-icons-config.py", mapKey, editIconInput.text]
+                            saveConfigProcess.running = true
+                            windowMenu.editDialogOpen = false
+                            windowMenu.editingApp = null
+                        }
+                    }
+                }
+            }
+            
+            Item { Layout.fillHeight: true }
+            
+            RowLayout {
+                spacing: 10
+                Layout.fillWidth: true
+                
+                Button {
+                    text: "Save"
+                    Layout.fillWidth: true
+                    onClicked: {
+                        if (windowMenu.editingApp) {
+                            var mapKey = windowMenu.editingApp.app || windowMenu.editingApp.resourceClass || windowMenu.editingApp.id;
+                            saveConfigProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/save-icons-config.py", mapKey, editIconInput.text]
+                            saveConfigProcess.running = true
+                            windowMenu.editDialogOpen = false
+                            windowMenu.editingApp = null
+                        }
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#cdd6f4"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.family: root ? root.fontFamily : "JetBrainsMono Nerd Font"
+                    }
+                    background: Rectangle {
+                        color: parent.hovered ? "#45475a" : "#313244"
+                        radius: 4
+                    }
+                }
+                
+                Button {
+                    text: "Cancel"
+                    Layout.fillWidth: true
+                    onClicked: {
+                        windowMenu.editDialogOpen = false
+                        windowMenu.editingApp = null
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#cdd6f4"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.family: root ? root.fontFamily : "JetBrainsMono Nerd Font"
+                    }
+                    background: Rectangle {
+                        color: parent.hovered ? "#45475a" : "#313244"
+                        radius: 4
+                    }
+                }
+            }
+        }
+    }
+}
 }
