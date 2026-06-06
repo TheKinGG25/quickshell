@@ -1,22 +1,23 @@
 {
   "iconMappings": {
-    "Brave-origin-beta": "\udb80\ude9e",
-    "Discord": "\udb81\ude6f",
-    "Steam": "\udb81\udcd3",
-    "Dolphin": "\udb80\ude4b",
-    "Okular": "\udb80\ude19",
-    "Code": "\udb82\ude1e",
-    "Ghostty": "\udb81\udfb7",
-    "Firefox": "\udb80\ude39",
-    "Chrome": "\udb80\udead",
-    "Chromium": "\udb80\udead",
-    "YouTube Music for Desktop": "\udb80\udfa4",
-    "org.kde.dolphin": "\udb80\ude4b",
-    "org.kde.okular": "\udb80\ude19",
-    "discord": "\udb81\ude6f",
-    "steam": "\udb81\udcd3",
-    "code": "\udb82\ude1e",
-    "com.mitchellh.ghostty": "\udb81\udfb7",
-    "brave-fmpnliohjhemenmnlpbfagaolkdacoja-Default": "brave-fmpnliohjhemenmnlpbfagaolkdacoja-Default"
-  }
+    "code": {
+      "displayName": "VS Code",
+      "icon": "/opt/visual-studio-code/resources/app/extensions/github-authentication/media/code-icon.svg"
+    },
+    "brave-fmpnliohjhemenmnlpbfagaolkdacoja-Default": {
+      "icon": "brave-fmpnliohjhemenmnlpbfagaolkdacoja-Default",
+      "displayName": "Claude"
+    },
+    "brave-origin-beta": {
+      "icon": "brave-origin-beta",
+      "displayName": "Brave"
+    },
+    "YouTube Music for Desktop": {
+      "icon": "/home/thekingg/ytmdesktop2/resources/favicon.png",
+      "displayName": "YouTube Music"
+    }
+  },
+  "blacklist": [
+    "org.quickshell"
+  ]
 }

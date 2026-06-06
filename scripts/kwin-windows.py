@@ -5,17 +5,17 @@ import json
 import sys
 import os
 
-# Load icon mappings from config
+# Load icon mappings, display names, and blacklist from config
 def load_icon_config():
     config_path = os.path.join(os.path.dirname(__file__), "icons.json")
     try:
         with open(config_path, 'r') as f:
             config = json.load(f)
-            return config.get("iconMappings", {})
+            return config.get("iconMappings", {}), config.get("blacklist", [])
     except:
-        return {}
+        return {}, []
 
-icon_mappings = load_icon_config()
+icon_mappings, blacklist = load_icon_config()
 
 def get_window_info(uuid):
     try:
@@ -133,21 +133,37 @@ def get_windows():
         if not display_name:
             display_name = win_text
 
-        # Try to find mapped icon from config
+        # Try to find mapped icon and display name from config
         mapped_icon = None
-        if display_name in icon_mappings:
-            mapped_icon = icon_mappings[display_name]
-        elif app_name in icon_mappings:
-            mapped_icon = icon_mappings[app_name]
-        elif icon_name in icon_mappings:
-            mapped_icon = icon_mappings[icon_name]
+        mapped_display_name = None
+        
+        # Check keys in order of likelihood: app_name (original class), then others
+        # This ensures we find the saved config under the app's resource class
+        for key in [app_name, icon_name, display_name]:
+            if key and key in icon_mappings:
+                mapping = icon_mappings[key]
+                # Handle both old format (string) and new format (dict)
+                if isinstance(mapping, dict):
+                    if not mapped_icon and "icon" in mapping:
+                        mapped_icon = mapping["icon"]
+                    if not mapped_display_name and "displayName" in mapping:
+                        mapped_display_name = mapping["displayName"]
+                elif isinstance(mapping, str) and not mapped_icon:
+                    mapped_icon = mapping
+                if mapped_icon and mapped_display_name:
+                    break
         
         final_icon = mapped_icon if mapped_icon else icon_name
+        final_display_name = mapped_display_name if mapped_display_name else display_name
+
+        # Check if app is blacklisted
+        if app_name in blacklist or final_display_name in blacklist:
+            continue
 
         windows_dict[win_id] = {
             "id": win_id,
             "title": win_text,
-            "app": display_name,
+            "app": final_display_name,
             "icon": final_icon,
             "resourceClass": app_name,
             "desktop": desktop
