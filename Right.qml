@@ -10,5 +10,5 @@ Row {
         root: parent.root
         screen: parent.screen
     }
-    BatteryPill { root: parent.root }
+    BatteryPill { root: parent.root; screen: parent.screen }
 }

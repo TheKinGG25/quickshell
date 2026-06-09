@@ -10,6 +10,7 @@ ShellRoot {
     property int fontSize: 16
     property var activeVolumeScreen: null
     property var activePowerScreen: null
+    property var activePowerProfileScreen: null
 
     // ── Shared state ──
     property int currentDesktop: 1
@@ -18,6 +19,7 @@ ShellRoot {
     property bool headphonesActive: false
     property int batteryLevel: 80
     property string batteryStatus: "Discharging"
+    property string powerProfile: "balanced"
     property var appVolumes: []
     property var windows: []
     property var activeWindowScreen: null
@@ -130,6 +132,17 @@ ShellRoot {
         }
     }
 
+    Process {
+        id: powerProfileProcess
+        command: ["powerprofilesctl", "get"]
+        stdout: SplitParser {
+            onRead: data => {
+                var p = data.trim()
+                if (p.length > 0) powerProfile = p
+            }
+        }
+    }
+
     // ── Timers ──
     Timer {
         interval: 200; running: true; repeat: true
@@ -155,9 +168,11 @@ ShellRoot {
             // Only poll app volumes every second to prevent UI stutter
             if (!shellRoot.activeVolumeScreen)
                 appVolumesProcess.running = true
-            
+
             if (shellRoot.activeWindowScreen)
                 windowsProcess.running = true
+
+            powerProfileProcess.running = true
         }
     }
 
@@ -169,6 +184,7 @@ ShellRoot {
         batteryStatusProcess.running = true
         appVolumesProcess.running = true
         windowsProcess.running = true
+        powerProfileProcess.running = true
     }
 
     Variants {
@@ -201,6 +217,15 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
         WindowMenu {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        PowerProfileMenu {
             required property var modelData
             root: shellRoot
             screen: modelData

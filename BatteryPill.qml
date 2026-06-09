@@ -2,6 +2,7 @@ import QtQuick
 
 Rectangle {
     property var root
+    property var screen
 
     property color pillColor: root.batteryLevel > 80 ? "#2ecc71" :
                               root.batteryLevel > 60 ? "#a8d832" :
@@ -27,7 +28,7 @@ Rectangle {
         font.family: root.fontFamily
         font.bold: true
     }
-    
+
     Text {
     	id:icon_class
         anchors.right: parent.right
@@ -38,5 +39,14 @@ Rectangle {
         font.pixelSize: root.fontSize
         font.family: root.fontFamily
         font.bold: true
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.MiddleButton
+        onClicked: mouse => {
+            if (mouse.button === Qt.MiddleButton)
+                root.activePowerProfileScreen = (root.activePowerProfileScreen === screen ? null : screen)
+        }
     }
 }
