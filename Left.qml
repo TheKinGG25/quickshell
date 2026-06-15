@@ -6,7 +6,7 @@ Row {
     spacing: 20
 
     Repeater {
-        model: 4
+        model: 6
         delegate: Text {
             id: text_element
             text: index + 1
