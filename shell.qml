@@ -22,6 +22,12 @@ ShellRoot {
     property string powerProfile: "balanced"
     property var appVolumes: []
     property var windows: []
+    property bool ytmPlaying: false
+    property string ytmTitle: ""
+    property string ytmArtist: ""
+    property string ytmThumbnailUrl: ""
+    property int ytmProgress: 0
+    property string ytmAccent: ""
     property var activeWindowScreen: null
     onActiveWindowScreenChanged: {
         if (activeWindowScreen) windowsProcess.running = true
@@ -133,6 +139,40 @@ ShellRoot {
     }
 
     Process {
+        id: ytmTrackProcess
+        command: ["python3", "/home/thekingg/.config/quickshell/scripts/ytm-track.py"]
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    var t = JSON.parse(data)
+                    ytmTitle = t.title || ""
+                    ytmArtist = t.author || ""
+                    ytmThumbnailUrl = t.thumbnail || ""
+                    ytmAccent = t.accent || ""
+                } catch(e) {
+                    ytmTitle = ""
+                }
+            }
+        }
+    }
+
+    Process {
+        id: ytmStateProcess
+        command: ["python3", "/home/thekingg/.config/quickshell/scripts/ytm-state.py"]
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    var s = JSON.parse(data)
+                    ytmPlaying = s.playing === true
+                    ytmProgress = Math.round(s.percentage || 0)
+                } catch(e) {
+                    ytmPlaying = false
+                }
+            }
+        }
+    }
+
+    Process {
         id: powerProfileProcess
         command: ["powerprofilesctl", "get"]
         stdout: SplitParser {
@@ -173,6 +213,8 @@ ShellRoot {
                 windowsProcess.running = true
 
             powerProfileProcess.running = true
+            if (!ytmTrackProcess.running) ytmTrackProcess.running = true
+            if (!ytmStateProcess.running) ytmStateProcess.running = true
         }
     }
 
@@ -185,6 +227,8 @@ ShellRoot {
         appVolumesProcess.running = true
         windowsProcess.running = true
         powerProfileProcess.running = true
+        ytmTrackProcess.running = true
+        ytmStateProcess.running = true
     }
 
     Variants {

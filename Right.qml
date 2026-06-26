@@ -6,9 +6,16 @@ Row {
     spacing: 6
 	
 	
-    VolumePill { 
+    YtmPill {
         root: parent.root
         screen: parent.screen
     }
-    BatteryPill { root: parent.root; screen: parent.screen }
+    VolumePill {
+        root: parent.root
+        screen: parent.screen
+    }
+    BatteryPill { 
+        root: parent.root; 
+        screen: parent.screen 
+    }
 }

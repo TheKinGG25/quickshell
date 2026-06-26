@@ -1,7 +1,6 @@
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
-import QtQuick.Layouts
 
 PanelWindow {
 	id: barWindow
@@ -16,27 +15,26 @@ PanelWindow {
         anchors.fill: parent
         color: "#30000000"
 
-        RowLayout {
-            anchors.fill: parent
+        Left {
+            anchors.left: parent.left
             anchors.leftMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            root: barWindow.root
+        }
+
+        Center {
+            anchors.centerIn: parent
+            height: parent.height
+            root: barWindow.root
+            screen: barWindow.screen
+        }
+
+        Right {
+            anchors.right: parent.right
             anchors.rightMargin: 8
-
-            Left { root: barWindow.root }
-
-            Item { Layout.fillWidth: true }
-
-            Center { 
-                root: barWindow.root 
-                screen: barWindow.screen
-                Layout.fillHeight: true
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Right { 
-                root: barWindow.root 
-                screen: barWindow.screen
-            }
+            anchors.verticalCenter: parent.verticalCenter
+            root: barWindow.root
+            screen: barWindow.screen
         }
     }
 }
