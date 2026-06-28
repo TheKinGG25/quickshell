@@ -3,11 +3,11 @@ import Quickshell.Wayland
 import QtQuick
 
 PanelWindow {
-	id: barWindow
+    id: barWindow
     property var root
 
     anchors { top: true; left: true; right: true }
-    height: 30
+    height: root.barHeight
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Top
 
@@ -30,11 +30,20 @@ PanelWindow {
         }
 
         Right {
+            id: rightSection
             anchors.right: parent.right
             anchors.rightMargin: 8
+            anchors.top: parent.top
+            anchors.topMargin: 4
             anchors.verticalCenter: parent.verticalCenter
             root: barWindow.root
             screen: barWindow.screen
+
+            onXChanged: {
+                barWindow.root.ytmPillLeftX = x
+                barWindow.root.rightLength = barWindow.root.screen.width - x 
+            }
+            Component.onCompleted: Qt.callLater(() => { barWindow.root.ytmPillLeftX = x })
         }
     }
 }

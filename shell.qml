@@ -8,9 +8,13 @@ ShellRoot {
     // ── Global constants ──
     property string fontFamily: "JetBrainsMono Nerd Font"
     property int fontSize: 16
+    property int barHeight: 30
     property var activeVolumeScreen: null
     property var activePowerScreen: null
     property var activePowerProfileScreen: null
+    property var activeYtmScreen: null
+    property int ytmPillLeftX: 0
+    property int rightLength: 0
 
     // ── Shared state ──
     property int currentDesktop: 1
@@ -22,12 +26,14 @@ ShellRoot {
     property string powerProfile: "balanced"
     property var appVolumes: []
     property var windows: []
+    property bool ytmAvailable: false
     property bool ytmPlaying: false
     property string ytmTitle: ""
     property string ytmArtist: ""
-    property string ytmThumbnailUrl: ""
+    property string ytmArt: ""
     property int ytmProgress: 0
-    property string ytmAccent: ""
+    property real ytmProgressSeconds: 0
+    property real ytmDuration: 0
     property var activeWindowScreen: null
     onActiveWindowScreenChanged: {
         if (activeWindowScreen) windowsProcess.running = true
@@ -139,34 +145,24 @@ ShellRoot {
     }
 
     Process {
-        id: ytmTrackProcess
-        command: ["python3", "/home/thekingg/.config/quickshell/scripts/ytm-track.py"]
+        id: ytmProcess
+        command: ["cat", "/home/thekingg/.cache/ytmd-now.json"]
         stdout: SplitParser {
             onRead: data => {
                 try {
-                    var t = JSON.parse(data)
-                    ytmTitle = t.title || ""
-                    ytmArtist = t.author || ""
-                    ytmThumbnailUrl = t.thumbnail || ""
-                    ytmAccent = t.accent || ""
+                    var d = JSON.parse(data)
+                    ytmAvailable = d.available === true && !!d.title
+                    ytmPlaying = d.playing === true
+                    ytmTitle = d.title || ""
+                    ytmArtist = d.artist || ""
+                    ytmArt = d.art || ""
+                    var dur = parseFloat(d.durationSeconds) || 0
+                    var prog = parseFloat(d.progressSeconds) || 0
+                    ytmDuration = dur
+                    ytmProgressSeconds = prog
+                    ytmProgress = dur > 0 ? Math.round(prog / dur * 100) : 0
                 } catch(e) {
-                    ytmTitle = ""
-                }
-            }
-        }
-    }
-
-    Process {
-        id: ytmStateProcess
-        command: ["python3", "/home/thekingg/.config/quickshell/scripts/ytm-state.py"]
-        stdout: SplitParser {
-            onRead: data => {
-                try {
-                    var s = JSON.parse(data)
-                    ytmPlaying = s.playing === true
-                    ytmProgress = Math.round(s.percentage || 0)
-                } catch(e) {
-                    ytmPlaying = false
+                    ytmAvailable = false
                 }
             }
         }
@@ -213,8 +209,7 @@ ShellRoot {
                 windowsProcess.running = true
 
             powerProfileProcess.running = true
-            if (!ytmTrackProcess.running) ytmTrackProcess.running = true
-            if (!ytmStateProcess.running) ytmStateProcess.running = true
+            if (!ytmProcess.running) ytmProcess.running = true
         }
     }
 
@@ -227,8 +222,7 @@ ShellRoot {
         appVolumesProcess.running = true
         windowsProcess.running = true
         powerProfileProcess.running = true
-        ytmTrackProcess.running = true
-        ytmStateProcess.running = true
+        ytmProcess.running = true
     }
 
     Variants {
@@ -270,6 +264,15 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
         PowerProfileMenu {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        YtmPanel {
             required property var modelData
             root: shellRoot
             screen: modelData
