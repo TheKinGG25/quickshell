@@ -30,6 +30,9 @@ PanelWindow {
     property int hoverMargin: 80                // invisible area around the cards that still counts as "inside"
     property int openAnimMs: 350                // pill -> player morph length
     property int closeAnimMs: 250               // player -> pill morph length
+    property int handoffMs: 32                  // overlap when swapping the real pill for its copy
+    property real fadeStart: 0.15               // morph value where the pill copy starts turning into the content
+    property real fadeSpan: 0.35                // and how much morph that crossfade takes
     property int seekWheelStep: 5               // seconds per scroll notch on the seek bar
 
     // ── Colors ── the player uses three: the red ground, a near-black ink drawn on it, and white
@@ -92,6 +95,11 @@ PanelWindow {
     // 0 = looks exactly like the pill, 1 = full player
     property real morph: 0
 
+    // Crossfade between the pill copy and the player content. ONE ramp drives both, so the two
+    // opacities always add up to 1. With separate ramps there was a band (morph 0.33 to 0.40)
+    // where neither was drawn and the card flashed empty for a frame on the way out.
+    readonly property real contentFade: Math.max(0, Math.min(1, (morph - fadeStart) / fadeSpan))
+
     anchors { top: true; left: true }
     exclusionMode: ExclusionMode.Ignore         // start at the very top of the screen, over the bar
     margins.top: 0
@@ -115,22 +123,36 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
+    // The copy and the real pill are identical and sit in the same spot, so drawing BOTH for a
+    // moment is invisible, while drawing NEITHER is a visible blink. They live in different
+    // windows (the bar and this panel) and Wayland does not have to present two surfaces in the
+    // same frame, so always overlap them instead of swapping at one instant: on the way in show
+    // the panel first and hide the real pill a tick later, on the way out bring the real pill
+    // back first and drop the panel a tick later.
     onWantOpenChanged: {
         if (wantOpen) {
             collapseAnim.stop()
+            dropPanelTimer.stop()
             if (!shown) morph = 0
-            shown = true
+            shown = true                // panel up, the copy covers the real pill
+            hidePillTimer.restart()     // only then hide the real pill underneath it
             expandAnim.restart()
         } else {
             expandAnim.stop()
-            collapseAnim.restart()
+            hidePillTimer.stop()
+            collapseAnim.restart()      // the real pill comes back in collapseAnim.onFinished
         }
     }
 
-    // Tell YtmPill on this screen to hide while the morphing copy is drawn
-    onShownChanged: {
-        if (shown) root.ytmPanelScreen = screen
-        else if (root.ytmPanelScreen === screen) root.ytmPanelScreen = null
+    Timer {
+        id: hidePillTimer
+        interval: ytmPanel.handoffMs
+        onTriggered: if (ytmPanel.shown) root.ytmPanelScreen = ytmPanel.screen
+    }
+    Timer {
+        id: dropPanelTimer
+        interval: ytmPanel.handoffMs
+        onTriggered: if (!ytmPanel.wantOpen) ytmPanel.shown = false
     }
 
     NumberAnimation {
@@ -148,7 +170,12 @@ PanelWindow {
         to: 0
         duration: ytmPanel.closeAnimMs
         easing.type: Easing.InOutCubic
-        onFinished: if (!ytmPanel.wantOpen) ytmPanel.shown = false
+        onFinished: {
+            if (ytmPanel.wantOpen) return
+            // Real pill back first, panel dropped a tick later (see onWantOpenChanged)
+            if (root.ytmPanelScreen === ytmPanel.screen) root.ytmPanelScreen = null
+            dropPanelTimer.restart()
+        }
     }
 
     function lerp(a, b, t) { return a + (b - a) * t }
@@ -221,7 +248,7 @@ PanelWindow {
                 width: ytmPanel.artSize
                 height: ytmPanel.cardHeight - 2 * ytmPanel.cardPadding
                 spacing: 0
-                opacity: Math.max(0, (ytmPanel.morph - 0.4) / 0.6)
+                opacity: ytmPanel.contentFade
 
                 // Cover art. ClippingRectangle (not Rectangle + clip) so the image follows the rounded corners
                 ClippingRectangle {
@@ -368,7 +395,7 @@ PanelWindow {
             }
         }
 
-        // Copy of the pill on top of the growing card: fades out during the first third of the morph
+        // Copy of the pill on top of the growing card: fades out as the content fades in
         YtmPill {
             id: pillCopy
             root: ytmPanel.root
@@ -376,7 +403,7 @@ PanelWindow {
             x: ytmPanel.pillX - ytmPanel.windowScreenX
             y: ytmPanel.pillY
             enabled: false                          // clicks go to the panel, not to this copy
-            opacity: Math.max(0, 1 - ytmPanel.morph * 3)
+            opacity: 1 - ytmPanel.contentFade
             visible: opacity > 0
         }
 
@@ -399,6 +426,7 @@ PanelWindow {
                 anchors.right: parent.right
                 anchors.margins: ytmPanel.sidePadding
                 height: ytmPanel.sideHeight - 2 * ytmPanel.sidePadding
+                opacity: ytmPanel.contentFade   // fade with the player, not sliced off by the clip
                 spacing: ytmPanel.sideButtons.length > 1
                     ? (height - ytmPanel.sideButtons.length * (ytmPanel.sideWidth - 2 * ytmPanel.sidePadding)) / (ytmPanel.sideButtons.length - 1)
                     : 0
