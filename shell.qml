@@ -9,6 +9,8 @@ ShellRoot {
     property string fontFamily: "JetBrainsMono Nerd Font"
     property int fontSize: 16
     property int barHeight: 30
+    property string homeDir: Quickshell.env("HOME")
+    property string scriptsDir: homeDir + "/.config/quickshell/scripts"
     property var activeVolumeScreen: null
     property var activePowerScreen: null
     property var activePowerProfileScreen: null
@@ -54,7 +56,7 @@ ShellRoot {
     
     Process {
         id: windowsProcess
-        command: ["python3", ".config/quickshell/scripts/kwin-windows.py"]
+        command: ["python3", scriptsDir + "/kwin-windows.py"]
         stdout: SplitParser {
             onRead: data => {
                 try {
@@ -82,7 +84,7 @@ ShellRoot {
 
     Process {
         id: appVolumesProcess
-        command: ["python3", ".config/quickshell/scripts/app-volumes.py"]
+        command: ["python3", scriptsDir + "/app-volumes.py"]
         stdout: SplitParser {
             onRead: data => {
                 try {
@@ -97,7 +99,7 @@ ShellRoot {
 
     Process {
         id: desktopProcess
-        command: ["python3", ".config/quickshell/scripts/kwin-desktop.py"]
+        command: ["python3", scriptsDir + "/kwin-desktop.py"]
         stdout: SplitParser {
             onRead: data => {
                 var n = parseInt(data.trim())
@@ -127,28 +129,34 @@ ShellRoot {
         }
     }
 
+    // Pushes a line on every PulseAudio/PipeWire change; restarted by the 2s timer if it dies
     Process {
-        id: batteryLevelProcess
-        command: ["cat", "/sys/class/power_supply/BAT0/capacity"]
+        id: volumeEventsProcess
+        command: ["pactl", "subscribe"]
         stdout: SplitParser {
             onRead: data => {
-                var n = parseInt(data.trim())
-                if (!isNaN(n)) batteryLevel = n
+                if (data.includes("on sink #") || data.includes("on server"))
+                    volumeRefreshTimer.restart()
+            }
+        }
+    }
+
+    // First BAT* found: prints capacity, then status
+    Process {
+        id: batteryProcess
+        command: ["sh", "-c", "for b in /sys/class/power_supply/BAT*; do cat \"$b/capacity\" \"$b/status\"; exit; done"]
+        stdout: SplitParser {
+            onRead: data => {
+                var line = data.trim()
+                if (/^\d+$/.test(line)) batteryLevel = parseInt(line)
+                else if (line.length > 0) batteryStatus = line
             }
         }
     }
 
     Process {
-        id: batteryStatusProcess
-        command: ["cat", "/sys/class/power_supply/BAT0/status"]
-        stdout: SplitParser {
-            onRead: data => { batteryStatus = data.trim() }
-        }
-    }
-
-    Process {
         id: ytmProcess
-        command: ["cat", ".cache/ytmd-now.json"]
+        command: ["cat", homeDir + "/.cache/ytmd-now.json"]
         stdout: SplitParser {
             onRead: data => {
                 try {
@@ -182,8 +190,8 @@ ShellRoot {
     }
 
     Process {
-    	id: clipboardProcss
-        command: ["python3", ".config/quickshell/scripts/clipboard.py"]
+        id: clipboardProcess
+        command: ["python3", scriptsDir + "/clipboard.py"]
         stdout: SplitParser {
             onRead: (line) => {
                 const data = JSON.parse(line)
@@ -207,13 +215,24 @@ ShellRoot {
         }
     }
 
+    // Debounces bursts of pactl events into one volume/sink read
     Timer {
-        interval: 100; running: true; repeat: true
+        id: volumeRefreshTimer
+        interval: 30
         onTriggered: {
             volumeProcess.running = true
             sinkProcess.running = true
-            batteryLevelProcess.running = true
-            batteryStatusProcess.running = true
+        }
+    }
+
+    // Fallback poll for volume (in case an event is missed) and battery
+    Timer {
+        interval: 2000; running: true; repeat: true
+        onTriggered: {
+            if (!volumeEventsProcess.running) volumeEventsProcess.running = true
+            volumeProcess.running = true
+            sinkProcess.running = true
+            batteryProcess.running = true
         }
     }
 
@@ -236,8 +255,8 @@ ShellRoot {
         desktopProcess.running = true
         volumeProcess.running = true
         sinkProcess.running = true
-        batteryLevelProcess.running = true
-        batteryStatusProcess.running = true
+        volumeEventsProcess.running = true
+        batteryProcess.running = true
         appVolumesProcess.running = true
         windowsProcess.running = true
         powerProfileProcess.running = true
@@ -300,11 +319,11 @@ ShellRoot {
     }
 
     Variants {
-    	model: Quickshell.screens
-    	Clipboard {
-    		required property var modelData
-    		root: shellRoot
-    		screen: modelData
-    	}
+        model: Quickshell.screens
+        Clipboard {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
     }
 }

@@ -255,7 +255,7 @@ Window {
             // Log for debugging
             console.log("Saving: mapKey=" + mapKey + ", icon=" + iconValue + ", displayName=" + displayNameValue)
             
-            saveConfigProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/save-icons-config.py", mapKey, iconValue, displayNameValue]
+            saveConfigProcess.command = ["python3", root.scriptsDir + "/save-icons-config.py", mapKey, iconValue, displayNameValue]
             saveConfigProcess.running = true
             
             // Refresh windows after a short delay to allow the save to complete
@@ -275,7 +275,7 @@ Window {
             var mapKey = originalMapKey
             console.log("Blacklisting: " + mapKey)
             
-            blacklistProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/add-to-blacklist.py", mapKey]
+            blacklistProcess.command = ["python3", root.scriptsDir + "/add-to-blacklist.py", mapKey]
             blacklistProcess.running = true
             
             // Refresh windows after a short delay

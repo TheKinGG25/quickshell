@@ -23,7 +23,7 @@ Row {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     root.currentDesktop = index + 1
-                    switchProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-desktop.py", (index + 1).toString()]
+                    switchProcess.command = ["python3", root.scriptsDir + "/kwin-desktop.py", (index + 1).toString()]
                     switchProcess.running = false
                     switchProcess.running = true
                 }

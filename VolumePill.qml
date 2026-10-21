@@ -20,10 +20,10 @@ Rectangle {
     Process { id: muteProcess;     command: ["wpctl", "set-mute",   "@DEFAULT_AUDIO_SINK@", "toggle"] }
     Process { id: volUpProcess;    command: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "1%+"] }
     Process { id: volDownProcess;  command: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "1%-"] }
-	Process { id: btToggleProcess; command: ["bash", "/home/thekingg/.config/quickshell/scripts/volume-toggle-bt.sh"] }
-	
-	Text {
-		id:number
+    Process { id: btToggleProcess; command: ["bash", root.scriptsDir + "/volume-toggle-bt.sh"] }
+    
+    Text {
+        id:number
         anchors.left: parent.left
         anchors.leftMargin: 4
         anchors.verticalCenter: parent.verticalCenter
@@ -35,7 +35,7 @@ Rectangle {
     }
     
     Text {
-    	id:icon_class
+        id:icon_class
         anchors.right: parent.right
         anchors.rightMargin: 4
         anchors.verticalCenter: parent.verticalCenter
@@ -55,7 +55,7 @@ Rectangle {
             else if (mouse.button === Qt.MiddleButton)
                 btToggleProcess.running = true
             else if (mouse.button === Qt.LeftButton)
-            	root.activeVolumeScreen = (root.activeVolumeScreen === screen ? null : screen)
+                root.activeVolumeScreen = (root.activeVolumeScreen === screen ? null : screen)
         }
         onWheel: wheel => {
             if (wheel.angleDelta.y > 0) volUpProcess.running = true

@@ -204,7 +204,7 @@ PanelWindow {
                                 onClicked: (mouse) => {
                                     if (mouse.button === Qt.LeftButton) {
                                         if (modelData && modelData.id) {
-                                            runProcess.command = ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-windows.py", modelData.id]
+                                            runProcess.command = ["python3", root.scriptsDir + "/kwin-windows.py", modelData.id]
                                             runProcess.running = true
                                             root.activeWindowScreen = null
                                         }

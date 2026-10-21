@@ -6,7 +6,7 @@ A QuickShell (QML) top bar for KDE Plasma on Wayland. No build step: `quickshell
 
 ```
                     ┌───────────────────────────── shell.qml (ShellRoot) ─────────────────────────────┐
-                    │  global state properties     Timers (100ms / 200ms / 500ms / 1s)                │
+                    │  global state properties     pactl events + timers (200ms/500ms/1s/2s)          │
  system tools  ───► │  Process + SplitParser  ───► currentDesktop, volume*, battery*, powerProfile,  │
  (qdbus6, wpctl,    │                              appVolumes[], windows[], ytm*                      │
   pactl, cat ...)   │  popup flags: active{Volume,Power,PowerProfile,Window,Ytm}Screen               │
@@ -63,7 +63,7 @@ Rules the code follows:
 | `EditDialogWindow.qml` | `<app_id> <icon> <name>` → updates `icons.json` |
 | `add-to-blacklist.py` | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
 | `EditDialogWindow.qml` | `<app_id>` → appends to blacklist |
-| `clipboard.py` | `shell.qml` `clipboardProcss` (never started yet) | Reads the first keyboard via `evdev`; prints `{running, index}` on Up/Down, prints `running: false` and exits on Enter |
+| `clipboard.py` | `shell.qml` `clipboardProcess` (never started yet) | Reads the first keyboard via `evdev`; prints `{running, index}` on Up/Down, prints `running: false` and exits on Enter |
 | `volume-toggle-bt.sh` + `bt-config.sh` | `VolumePill.qml` | connect/disconnect `HEADPHONE_MAC` |
 | `icons.json` | `kwin-windows.py` | `iconMappings` keyed by `resourceClass`, plus `blacklist` |
 
@@ -71,16 +71,17 @@ Rules the code follows:
 
 | Every | Process | Property |
 |-------|---------|----------|
-| 100ms | `wpctl get-volume @DEFAULT_AUDIO_SINK@` | `volumeLevel`, `volumeMuted` |
-| 100ms | `wpctl inspect ... \| grep -c api.bluez5.address` | `headphonesActive` |
-| 100ms | `cat /sys/class/power_supply/BAT0/{capacity,status}` | `batteryLevel`, `batteryStatus` |
+| event | `pactl subscribe` (long-running). A `sink` or `server` event restarts a 30ms debounce timer that runs the two reads below | |
+| event + 2s | `wpctl get-volume @DEFAULT_AUDIO_SINK@` | `volumeLevel`, `volumeMuted` |
+| event + 2s | `wpctl inspect ... \| grep -c api.bluez5.address` | `headphonesActive` |
+| 2s | `sh -c` loop over `/sys/class/power_supply/BAT*`, first match: `capacity` then `status` | `batteryLevel`, `batteryStatus` |
 | 200ms | `kwin-desktop.py` | `currentDesktop` |
 | 500ms | `kwin-windows.py` (only while WindowMenu open) | `windows` |
 | 1s | `app-volumes.py` (only while VolumeSlider closed) | `appVolumes` |
 | 1s | `powerprofilesctl get` | `powerProfile` |
 | 1s | `cat ~/.cache/ytmd-now.json` | `ytm*` |
 
-Paths: the `shell.qml` pollers use paths relative to the working directory (`.config/quickshell/scripts/...`, `.cache/ytmd-now.json`), so quickshell must be started from `$HOME`. Click handlers in components still use absolute `/home/thekingg/...` paths.
+Paths: every script path is built from `root.scriptsDir` (`Quickshell.env("HOME") + "/.config/quickshell/scripts"`), and the music cache from `root.homeDir`. The 2s timer also restarts `pactl subscribe` if it exits.
 
 Array properties are only reassigned when `JSON.stringify` differs, to avoid needless re-layout of lists.
 
@@ -97,7 +98,7 @@ scripts/ytmd-nowplaying.py   (separate long-running process, NOT started by quic
 ~/.cache/ytmd-now.json       { available, playing, state, title, artist, videoId,
    │                           durationSeconds, progressSeconds, art, thumbnails,
    │                           queueSource, queue[] }
-   ▼  cat .cache/ytmd-now.json, every 1s (shell.qml ytmProcess, relative to cwd)
+   ▼  cat ~/.cache/ytmd-now.json, every 1s (shell.qml ytmProcess)
 ShellRoot.ytm*  ──►  YtmPill (bar)  ──click──►  YtmPanel (drop-down)
 ```
 

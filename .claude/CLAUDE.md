@@ -19,7 +19,7 @@ quickshell -c /home/thekingg/.config/quickshell
 quickshell
 ```
 
-The polling `Process` commands in `shell.qml` use paths relative to the working directory (`.config/quickshell/scripts/...`, `.cache/ytmd-now.json`), so they only resolve when quickshell is started from `$HOME`. Other components still use absolute `/home/thekingg/...` paths.
+All script paths come from `root.scriptsDir` (`$HOME/.config/quickshell/scripts`) and `root.homeDir`, defined once in `shell.qml`, so the launch directory does not matter.
 
 There are no build steps - QML is interpreted at runtime. Changes take effect on the next `quickshell` launch.
 
@@ -51,7 +51,8 @@ Polling cadence (all in `shell.qml`):
 
 | Interval | What |
 |----------|------|
-| 100 ms | `wpctl get-volume`, bluetooth sink check, battery capacity + status |
+| event | `pactl subscribe` (long-running): any sink/server change triggers `wpctl get-volume` + bluetooth sink check, debounced 30 ms |
+| 2 s | fallback volume + sink read, battery (first `/sys/class/power_supply/BAT*`), restart `pactl subscribe` if it died |
 | 200 ms | `kwin-desktop.py` (current desktop) |
 | 500 ms | `kwin-windows.py` while WindowMenu is open |
 | 1 s | `app-volumes.py` (skipped while VolumeSlider is open), `powerprofilesctl get`, `cat ~/.cache/ytmd-now.json` |
@@ -120,7 +121,7 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 
 ### Music player (YtmPill / YtmPanel)
 
-Pipeline: `ytmdesktop` (Venipa ytmdesktop2, launched with `--remote-debugging-port=9222 --remote-allow-origins=*`) → `ytmd-nowplaying.py` evaluates JS in the `music.youtube.com` page via CDP websocket → writes one JSON line to `~/.cache/ytmd-now.json` → `shell.qml` `ytmProcess` runs `cat .cache/ytmd-now.json` (relative to the working directory) every second → `ytm*` properties.
+Pipeline: `ytmdesktop` (Venipa ytmdesktop2, launched with `--remote-debugging-port=9222 --remote-allow-origins=*`) → `ytmd-nowplaying.py` evaluates JS in the `music.youtube.com` page via CDP websocket → writes one JSON line to `~/.cache/ytmd-now.json` → `shell.qml` `ytmProcess` runs `cat ~/.cache/ytmd-now.json` every second → `ytm*` properties.
 
 JSON fields used by QML: `available`, `playing`, `title`, `artist`, `art`, `durationSeconds`, `progressSeconds`. The script also emits `state`, `videoId`, `thumbnails`, `queue[]`, `queueSource` which the UI does not use yet.
 
@@ -155,7 +156,7 @@ The window list enrichment pipeline in `kwin-windows.py` looks up each window's 
 - `python-evdev` - keyboard input for `clipboard.py` (needs read access to `/dev/input/event*`)
 - `JetBrainsMono Nerd Font` - required for all icons (Nerd Font codepoints used throughout)
 
-Paths in QML `Process` commands are either hardcoded to `/home/thekingg/.config/quickshell/...` (pills, menus) or relative to `$HOME` (`shell.qml` pollers).
+QML `Process` commands build script paths from `root.scriptsDir`; never hardcode `/home/...` paths in components.
 
 ### Color theme
 

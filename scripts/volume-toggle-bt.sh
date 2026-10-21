@@ -1,5 +1,5 @@
 #!/bin/bash
-source ~/.config/quickshell/scripts/bt-config.sh
+source "$(dirname "$0")/bt-config.sh"
 
 if bluetoothctl info "$HEADPHONE_MAC" | grep -q "Connected: yes"; then
     bluetoothctl disconnect "$HEADPHONE_MAC"

@@ -18,7 +18,7 @@ Rectangle {
     color: pillColor
 
     Text {
-		id:number
+        id:number
         anchors.left: parent.left
         anchors.leftMargin: 4
         anchors.verticalCenter: parent.verticalCenter
@@ -30,7 +30,7 @@ Rectangle {
     }
 
     Text {
-    	id:icon_class
+        id:icon_class
         anchors.right: parent.right
         anchors.rightMargin: 4
         anchors.verticalCenter: parent.verticalCenter

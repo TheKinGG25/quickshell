@@ -102,7 +102,7 @@ PanelWindow {
 
             Text {
                 text: pbControl.btnIcon
-                font.family: root.fontFamlily
+                font.family: root.fontFamily
                 font.pixelSize: 18
                 color: pbControl.isActive ? pbControl.btnColor : "#7f849c"
                 Layout.leftMargin: 2
