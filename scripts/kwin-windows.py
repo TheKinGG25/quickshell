@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
+"""
+kwin-windows.py - list open windows for WindowMenu, or focus one.
+
+  kwin-windows.py            -> prints a JSON array of {id, title, app, icon, resourceClass, desktop}
+  kwin-windows.py <win_id>   -> focuses that window, called by WindowMenu on click
+
+Windows come from KWin's krunner "WindowsRunner". Each one's resourceClass is looked up in
+icons.json (CONFIG_FILE) to override its icon / display name or hide it (blacklist).
+To change how an app shows up, edit icons.json or use F2 in WindowMenu.
+"""
 import subprocess
 import re
 import json
 import sys
 import os
 
+# ── Tweakables ──
+CONFIG_FILE = "icons.json"      # next to this script
+SKIP_ID_PREFIX = "8_"           # krunner ids starting with this are desktop entries, not windows
+
 # Load icon mappings, display names, and blacklist from config
 def load_icon_config():
-    config_path = os.path.join(os.path.dirname(__file__), "icons.json")
+    config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
     try:
         with open(config_path, 'r') as f:
             config = json.load(f)
@@ -54,7 +68,7 @@ def get_windows():
             
         win_id = id_match.group(1)
         
-        if win_id.startswith("8_"):  # Skip desktop selectors
+        if win_id.startswith(SKIP_ID_PREFIX):  # Skip desktop selectors
             continue
             
         if win_id in windows_dict:

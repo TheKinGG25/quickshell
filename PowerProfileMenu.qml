@@ -1,3 +1,7 @@
+// PowerProfileMenu.qml - performance / balanced / power-saver picker, top right.
+// Opened by middle-clicking BatteryPill, closes when the mouse leaves.
+// The active profile (root.powerProfile, polled in shell.qml) gets a colored border and dot.
+
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -9,10 +13,24 @@ PanelWindow {
     id: profileWindow
     property var root
 
+    // ── Tweakables ──
+    // One entry per profile. profile: name passed to `powerprofilesctl set`.
+    // icon: Nerd Font code point (https://www.nerdfonts.com/cheat-sheet).
+    property var profiles: [
+        { icon: "\u{f140c}", label: "Performance", color: root.colRed,   profile: "performance" },
+        { icon: "\u{f140b}", label: "Balanced",    color: root.colGreen, profile: "balanced" },
+        { icon: "\u{f0f86}", label: "Power Saver", color: root.colBlue,  profile: "power-saver" }
+    ]
+    property int cardWidth: 220
+    property int cardRadius: 12
+    property int rowHeight: 44
+    property int iconSize: 18
+    property int labelSize: 13
+
     anchors { top: true; right: true }
     margins.top: 0
     margins.right: 0
-    width: 240
+    width: cardWidth + 20                       // invisible margin around the card
     height: contentCol.implicitHeight + 80
     color: "transparent"
     visible: root && root.activePowerProfileScreen === screen
@@ -27,17 +45,18 @@ PanelWindow {
         hoverEnabled: true
         onExited: root.activePowerProfileScreen = null
 
+        // Visible card
         Rectangle {
-            width: 220
+            width: profileWindow.cardWidth
             height: contentCol.implicitHeight + 24
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.topMargin: 0
             anchors.rightMargin: 0
 
-            radius: 12
-            color: "#DD11111b"
-            border.color: "#313244"
+            radius: profileWindow.cardRadius
+            color: root.popupBg
+            border.color: root.popupBorder
             border.width: 1
 
             ColumnLayout {
@@ -45,91 +64,61 @@ PanelWindow {
                 anchors.centerIn: parent
                 spacing: 4
 
-                ProfileButton {
-                    btnIcon: "󱐌"
-                    label: "Performance"
-                    btnColor: "#f38ba8"
-                    isActive: root && root.powerProfile === "performance"
-                    onClicked: {
-                        setPerformanceProc.running = false
-                        setPerformanceProc.running = true
-                        root.powerProfile = "performance"
-                    }
-                }
+                Repeater {
+                    model: profileWindow.profiles
+                    delegate: Button {
+                        id: pbControl
+                        property bool isActive: root && root.powerProfile === modelData.profile
 
-                ProfileButton {
-                    btnIcon: "󱐋"
-                    label: "Balanced"
-                    btnColor: "#a6e3a1"
-                    isActive: root && root.powerProfile === "balanced"
-                    onClicked: {
-                        setBalancedProc.running = false
-                        setBalancedProc.running = true
-                        root.powerProfile = "balanced"
-                    }
-                }
+                        Layout.fillWidth: true
+                        onClicked: {
+                            setProfileProc.command = ["powerprofilesctl", "set", modelData.profile]
+                            setProfileProc.running = false
+                            setProfileProc.running = true
+                            root.powerProfile = modelData.profile    // highlight right away, the poll confirms it
+                        }
 
-                ProfileButton {
-                    btnIcon: "󰾆"
-                    label: "Power Saver"
-                    btnColor: "#89b4fa"
-                    isActive: root && root.powerProfile === "power-saver"
-                    onClicked: {
-                        setPowerSaverProc.running = false
-                        setPowerSaverProc.running = true
-                        root.powerProfile = "power-saver"
+                        // icon | label | dot (dot only on the active profile)
+                        contentItem: RowLayout {
+                            spacing: 10
+
+                            Text {
+                                text: modelData.icon
+                                font.family: root.fontFamily
+                                font.pixelSize: profileWindow.iconSize
+                                color: pbControl.isActive ? modelData.color : root.colOverlay
+                                Layout.leftMargin: 2
+                            }
+                            Text {
+                                text: modelData.label
+                                font.family: root.fontFamily
+                                font.pixelSize: profileWindow.labelSize
+                                color: pbControl.isActive ? modelData.color : root.colText
+                                font.bold: pbControl.isActive
+                                Layout.fillWidth: true
+                            }
+                            Rectangle {
+                                width: 6; height: 6; radius: 3
+                                color: modelData.color
+                                visible: pbControl.isActive
+                                Layout.rightMargin: 2
+                            }
+                        }
+
+                        background: Rectangle {
+                            implicitWidth: profileWindow.cardWidth - 20
+                            implicitHeight: profileWindow.rowHeight
+                            radius: 8
+                            color: pbControl.hovered ? root.colSurface : "transparent"
+                            border.color: pbControl.isActive ? modelData.color : "transparent"
+                            border.width: pbControl.isActive ? 1 : 0
+                        }
                     }
                 }
             }
         }
     }
 
-    Process { id: setPerformanceProc; command: ["powerprofilesctl", "set", "performance"] }
-    Process { id: setBalancedProc; command: ["powerprofilesctl", "set", "balanced"] }
-    Process { id: setPowerSaverProc; command: ["powerprofilesctl", "set", "power-saver"] }
-
-    component ProfileButton: Button {
-        id: pbControl
-        property string btnIcon: ""
-        property string label: ""
-        property color btnColor: "white"
-        property bool isActive: false
-
-        Layout.fillWidth: true
-
-        contentItem: RowLayout {
-            spacing: 10
-
-            Text {
-                text: pbControl.btnIcon
-                font.family: root.fontFamily
-                font.pixelSize: 18
-                color: pbControl.isActive ? pbControl.btnColor : "#7f849c"
-                Layout.leftMargin: 2
-            }
-            Text {
-                text: pbControl.label
-                font.family: root.fontFamily
-                font.pixelSize: 13
-                color: pbControl.isActive ? pbControl.btnColor : "#cdd6f4"
-                font.bold: pbControl.isActive
-                Layout.fillWidth: true
-            }
-            Rectangle {
-                width: 6; height: 6; radius: 3
-                color: pbControl.btnColor
-                visible: pbControl.isActive
-                Layout.rightMargin: 2
-            }
-        }
-
-        background: Rectangle {
-            implicitWidth: 200
-            implicitHeight: 44
-            radius: 8
-            color: pbControl.hovered ? "#313244" : "transparent"
-            border.color: pbControl.isActive ? pbControl.btnColor : "transparent"
-            border.width: pbControl.isActive ? 1 : 0
-        }
-    }
+    // Runs `powerprofilesctl set <profile>` for whichever row was clicked
+    Process { id: setProfileProc }
 }

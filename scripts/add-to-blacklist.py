@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
+"""
+add-to-blacklist.py - hide an app from WindowMenu by adding it to the icons.json blacklist.
+
+  add-to-blacklist.py <app_id>
+
+Called by the "Blacklist" button in EditDialogWindow.qml. To un-hide, remove the entry from
+"blacklist" in icons.json by hand.
+"""
 import json
 import sys
 import os
 
+# ── Tweakables ──
+CONFIG_FILE = "icons.json"      # next to this script
+
 def add_to_blacklist(app_id):
     """Add an app to the blacklist"""
-    config_path = os.path.join(os.path.dirname(__file__), "icons.json")
+    config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
     
     try:
         # Load existing config

@@ -1,3 +1,8 @@
+// YtmPanel.qml - big "now playing" card that drops down from YtmPill.
+// Cover art, title, artist, elapsed / total time and a progress bar. Click anywhere on it to close.
+// Opens at root.ytmPillLeftX (set by Bar.qml), same width as the pill (root.ytmWidth).
+// Rough edges are listed in .claude/TODO.md.
+
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
@@ -7,12 +12,24 @@ PanelWindow {
     id: ytmPanel
     property var root
 
-    readonly property int expandedHeight: 290
+    // ── Tweakables ──
+    readonly property int expandedHeight: 290   // full card height
+    property int artHeight: 180                 // cover art height
+    property int openAnimMs: 300                // drop-down animation length
+    property color cardColor: "#ff4444"
+    property color artPlaceholder: "#cc2222"    // behind the cover while it loads
+    property color titleColor: "black"
+    property color artistColor: "#1a0000"
+    property int titleFontSize: 13
+    property int artistFontSize: 11
+    property int timeFontSize: 10
+    property color progressFill: root.colBlue
+    property color progressTrack: root.colSurface
 
     anchors { top: true; left: true }
-    margins.top: -root.barHeight + 4
+    margins.top: -root.barHeight + 4        // pulls the card up so it overlaps the pill
     margins.left: root.ytmPillLeftX
-    width: 280
+    width: root.ytmWidth
     // Always the full height when visible so clipping works; 0 would prevent layout
     height: expandedHeight
     color: "transparent"
@@ -21,6 +38,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
+    // Replay the drop-down animation every time it opens
     onVisibleChanged: {
         if (visible) {
             inner.height = 0
@@ -33,6 +51,7 @@ PanelWindow {
         onClicked: root.activeYtmScreen = null
     }
 
+    // Visible card (its height animates from 0 to expandedHeight)
     Rectangle {
         id: inner
         anchors.top: parent.top
@@ -40,8 +59,8 @@ PanelWindow {
         anchors.right: parent.right
         clip: true
         height: 0
-        color: "#ff4444"
-        radius: 6
+        color: ytmPanel.cardColor
+        radius: root.pillRadius
 
         NumberAnimation {
             id: expandAnim
@@ -49,7 +68,7 @@ PanelWindow {
             property: "height"
             from: 0
             to: ytmPanel.expandedHeight
-            duration: 300
+            duration: ytmPanel.openAnimMs
             easing.type: Easing.OutCubic
         }
 
@@ -63,13 +82,13 @@ PanelWindow {
             // Album art
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 180
+                Layout.preferredHeight: ytmPanel.artHeight
 
                 Rectangle {
                     anchors.fill: parent
                     radius: 6
                     clip: true
-                    color: "#cc2222"
+                    color: ytmPanel.artPlaceholder
 
                     Image {
                         anchors.fill: parent
@@ -84,8 +103,8 @@ PanelWindow {
             Text {
                 Layout.fillWidth: true
                 text: root.ytmTitle
-                color: "black"
-                font.pixelSize: 13
+                color: ytmPanel.titleColor
+                font.pixelSize: ytmPanel.titleFontSize
                 font.family: root.fontFamily
                 font.bold: true
                 elide: Text.ElideRight
@@ -96,8 +115,8 @@ PanelWindow {
             Text {
                 Layout.fillWidth: true
                 text: root.ytmArtist
-                color: "#1a0000"
-                font.pixelSize: 11
+                color: ytmPanel.artistColor
+                font.pixelSize: ytmPanel.artistFontSize
                 font.family: root.fontFamily
                 elide: Text.ElideRight
                 horizontalAlignment: Text.AlignHCenter
@@ -108,24 +127,25 @@ PanelWindow {
                 Layout.fillWidth: true
                 spacing: 4
 
+                // elapsed (left) ... total (right)
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
                         text: ytmPanel.formatTime(root.ytmProgressSeconds)
-                        color: "#1a0000"
-                        font.pixelSize: 10
+                        color: ytmPanel.artistColor
+                        font.pixelSize: ytmPanel.timeFontSize
                         font.family: root.fontFamily
                     }
                     Item { Layout.fillWidth: true }
                     Text {
                         text: ytmPanel.formatTime(root.ytmDuration)
-                        color: "#1a0000"
-                        font.pixelSize: 10
+                        color: ytmPanel.artistColor
+                        font.pixelSize: ytmPanel.timeFontSize
                         font.family: root.fontFamily
                     }
                 }
 
-                // Progress bar — same geometry as VolumeSlider master track
+                // Progress bar, same geometry as the VolumeSlider master track
                 Item {
                     Layout.fillWidth: true
                     height: 12
@@ -137,12 +157,12 @@ PanelWindow {
                     Rectangle {
                         height: parent.height; anchors.left: parent.left
                         width: Math.max(0, parent.hx - 4)
-                        color: "#89b4fa"; radius: 3
+                        color: ytmPanel.progressFill; radius: 3
                     }
                     Rectangle {
                         height: parent.height; x: parent.hx + 8
                         width: Math.max(0, parent.width - x)
-                        color: "#313244"; radius: 3
+                        color: ytmPanel.progressTrack; radius: 3
                     }
                     Rectangle {
                         x: parent.hx; y: 0
@@ -154,6 +174,7 @@ PanelWindow {
         }
     }
 
+    // Seconds -> "m:ss"
     function formatTime(secs) {
         if (!secs || secs <= 0) return "0:00"
         var s = Math.floor(secs)

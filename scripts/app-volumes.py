@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+app-volumes.py - per-app audio streams for the VolumeSlider popup.
+
+Prints a JSON array of {id, name, volume} parsed from `pactl list sink-inputs`.
+`id` is the sink-input number used by `pactl set-sink-input-volume` in VolumeSlider.qml.
+Name comes from application.name, falling back to media.name.
+"""
 import subprocess
 import json
 import re

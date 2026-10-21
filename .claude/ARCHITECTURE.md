@@ -37,17 +37,17 @@ Rules the code follows:
 |------|------|----------------|
 | `shell.qml` | `ShellRoot` | Global state, all polling processes and timers, instantiates every window per screen |
 | `Bar.qml` | `PanelWindow` (Top layer, anchored top/left/right) | 30px translucent strip holding Left / Center / Right. Publishes `ytmPillLeftX` for YtmPanel placement |
-| `Left.qml` | `Row` | Six desktop numbers, active one white/bold. Click → `kwin-desktop.py <n>` (optimistically sets `currentDesktop`) |
+| `Left.qml` | `Row` | `root.desktopCount` desktop numbers, active one white/bold. Click → `kwin-desktop.py <n>` (optimistically sets `currentDesktop`) |
 | `Center.qml` | `MouseArea` | Canvas arc showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu, middle → PowerMenu |
 | `Right.qml` | `Row` | `YtmPill`, `VolumePill`, `BatteryPill` |
 | `YtmPill.qml` | `Rectangle` 280x22 | Thumbnail, title, artist, 2px progress line. Hidden unless `ytmAvailable`. Click toggles YtmPanel |
 | `YtmPanel.qml` | `PanelWindow` (Overlay) | Drop-down card under the pill: 180px art, title, artist, `m:ss` labels, progress bar. Height animates 0 → 290 on open. Click anywhere closes |
 | `VolumePill.qml` | `Rectangle` | Volume number + icon. Color: grey muted / pink bluetooth / blue speakers. Left: slider, middle: BT toggle, right: mute, wheel: ±1% |
 | `VolumeSlider.qml` | `PanelWindow` (Overlay, top-right) | Master slider (`wpctl`) and one slider per app stream (`pactl`) |
-| `BatteryPill.qml` | `Rectangle` | Percent + arrow (↑ charging, ↓ discharging). Color steps every 20%. Middle click → PowerProfileMenu |
-| `PowerProfileMenu.qml` | `PanelWindow` (Overlay, top-right) | Three buttons calling `powerprofilesctl set ...` |
-| `PowerMenu.qml` | `PanelWindow` (Overlay, centered) | Lock / suspend / reboot / poweroff via `loginctl` / `systemctl` |
-| `WindowMenu.qml` | `PanelWindow` (Overlay, centered, keyboard OnDemand) | Desktop tabs + list of windows on the selected desktop. Click focuses via `kwin-windows.py <id>`. F2 on hover opens EditDialogWindow. Closes 200ms after mouse leaves unless the dialog is open |
+| `BatteryPill.qml` | `Rectangle` | Percent + arrow (↑ charging, ↓ discharging, - plugged but not charging). Color steps every 20%. Middle click → PowerProfileMenu |
+| `PowerProfileMenu.qml` | `PanelWindow` (Overlay, top-right) | One row per entry in its `profiles` list, click runs `powerprofilesctl set <profile>` |
+| `PowerMenu.qml` | `PanelWindow` (Overlay, centered) | One button per entry in its `buttons` list (icon, label, color, command): shutdown / restart / sleep / lock |
+| `WindowMenu.qml` | `PanelWindow` (Overlay, centered, keyboard OnDemand) | Desktop tabs (`root.desktopCount`) + list of windows on the selected desktop. Click focuses via `kwin-windows.py <id>`. F2 on hover opens EditDialogWindow. Closes 200ms after mouse leaves unless the dialog is open |
 | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
 | `EditDialogWindow.qml` | `Window` | Edit icon + display name for a `resourceClass`, or blacklist it. Writes through `save-icons-config.py` / `add-to-blacklist.py` |
 

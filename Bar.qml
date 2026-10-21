@@ -1,3 +1,7 @@
+// Bar.qml - the top bar itself, one per monitor.
+// Layout: Left (desktops) | Center (clock, centered) | Right (pills).
+// Bar height comes from root.barHeight in shell.qml.
+
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
@@ -6,6 +10,11 @@ PanelWindow {
     id: barWindow
     property var root
 
+    // ── Tweakables ──
+    property color barColor: "#30000000"    // bar background (#AARRGGBB, 30 = ~19% opacity)
+    property int sideMargin: 8              // gap between screen edge and Left / Right sections
+    property int rightTopMargin: 4          // nudges the pills down inside the bar
+
     anchors { top: true; left: true; right: true }
     height: root.barHeight
     color: "transparent"
@@ -13,11 +22,11 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: "#30000000"
+        color: barWindow.barColor
 
         Left {
             anchors.left: parent.left
-            anchors.leftMargin: 8
+            anchors.leftMargin: barWindow.sideMargin
             anchors.verticalCenter: parent.verticalCenter
             root: barWindow.root
         }
@@ -32,16 +41,17 @@ PanelWindow {
         Right {
             id: rightSection
             anchors.right: parent.right
-            anchors.rightMargin: 8
+            anchors.rightMargin: barWindow.sideMargin
             anchors.top: parent.top
-            anchors.topMargin: 4
+            anchors.topMargin: barWindow.rightTopMargin
             anchors.verticalCenter: parent.verticalCenter
             root: barWindow.root
             screen: barWindow.screen
 
+            // Tells YtmPanel where the pill row starts so it can open right under YtmPill
             onXChanged: {
                 barWindow.root.ytmPillLeftX = x
-                barWindow.root.rightLength = barWindow.root.screen.width - x 
+                barWindow.root.rightLength = barWindow.root.screen.width - x    // Known bug (see .claude/TODO.md)
             }
             Component.onCompleted: Qt.callLater(() => { barWindow.root.ytmPillLeftX = x })
         }

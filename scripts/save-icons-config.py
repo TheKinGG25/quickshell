@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
+"""
+save-icons-config.py - save an app's icon and/or display name into icons.json.
+
+  save-icons-config.py <app_id> [icon] [display_name]
+
+Called by EditDialogWindow.qml. app_id is the window's resourceClass. Empty values are left unchanged.
+"""
 import json
 import sys
 import os
 
+# ── Tweakables ──
+CONFIG_FILE = "icons.json"                  # next to this script
+DEBUG_LOG = "/tmp/save-icons-debug.log"      # every save is logged here
+
 def save_icon_config(app_id, icon, display_name):
     """Save or update icon configuration"""
-    config_path = os.path.join(os.path.dirname(__file__), "icons.json")
+    config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
     
     try:
         # Load existing config
@@ -34,14 +45,14 @@ def save_icon_config(app_id, icon, display_name):
             json.dump(config, f, indent=2)
         
         # Debug output
-        with open("/tmp/save-icons-debug.log", "a") as log:
+        with open(DEBUG_LOG, "a") as log:
             log.write(f"Saved: app_id={app_id}, icon={icon}, display_name={display_name}\n")
             log.write(f"Config: {json.dumps(config['iconMappings'].get(app_id, {}))}\n")
         
         print(json.dumps({"success": True, "message": "Configuration saved"}))
         return 0
     except Exception as e:
-        with open("/tmp/save-icons-debug.log", "a") as log:
+        with open(DEBUG_LOG, "a") as log:
             log.write(f"Error: {str(e)}\n")
         print(json.dumps({"success": False, "message": str(e)}))
         return 1
