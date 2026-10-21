@@ -4,12 +4,14 @@
 // real pill hides (root.ytmPanelScreen). A separate side card of buttons floats to the right, below the bar.
 // Data and commands: root.ytm* and root.ytmCommand() in shell.qml (YouTube Music Desktop 2 API).
 // Closes when the mouse leaves the hover area, or on a click where the pill was.
-// Side buttons are a list in Tweakables (`sideButtons`).
+// Side buttons are a list in Tweakables (`sideButtons`); the cover flips to the upcoming queue
+// and the side card flips to a vertical volume slider.
 
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import "components"
 
@@ -34,6 +36,17 @@ PanelWindow {
     property real fadeStart: 0.15               // morph value where the pill copy starts turning into the content
     property real fadeSpan: 0.35                // and how much morph that crossfade takes
     property int seekWheelStep: 5               // seconds per scroll notch on the seek bar
+    property int overlayAnimMs: 150             // cover <-> queue and buttons <-> volume crossfade
+
+    // Blurred cover art behind the card. Keep `artBgStrength` low: the text is the dark `ink`, so
+    // a strong dark cover would eat its contrast. 0 turns the background off.
+    property real artBgStrength: 0.35           // how much of the blurred art shows through the red
+    property int artBgBlur: 48                  // blur radius in px
+    property real artBgLift: 0.1                // brightness nudge, so a dark cover cannot dim the card
+
+    property int queueRowHeight: 40             // one row of the upcoming-queue list
+    property real queueScrim: 0.55              // darkness behind the queue text, over the cover art
+    property int volTrackWidth: 10              // the vertical volume slider's bar
 
     // ── Colors ── the player uses three: the red ground, a near-black ink drawn on it, and white
     // for a toggle that is on. The two shades below are derived, so changing `accent` or `ink`
@@ -66,8 +79,17 @@ PanelWindow {
         { action: "dislike", label: "Dislike", icon: "\u{f0512}", activeIcon: "\u{f0511}" },
         { action: "shuffle", label: "Shuffle", icon: "\u{f049d}", activeIcon: "" },
         { action: "repeat",  label: "Repeat",  icon: "\u{f0457}", activeIcon: "\u{f0456}" },
-        { action: "close",   label: "Close",   icon: "\u{f0156}", activeIcon: "" }
+        { action: "queue",   label: "Queue",   icon: "\u{f0cb8}", activeIcon: "" },
+        { action: "volume",  label: "Volume",  icon: "\u{f057e}", activeIcon: "" }
     ]
+
+    // Which overlay is showing. Both are reset every time the panel opens.
+    property bool queueOpen: false              // cover art flipped to the upcoming queue
+    property bool volumeOpen: false             // side card flipped to the volume slider
+
+    // 1 while the volume slider shows, 0 while the buttons show
+    property real volumeFade: volumeOpen ? 1 : 0
+    Behavior on volumeFade { NumberAnimation { duration: ytmPanel.overlayAnimMs } }
 
     // ── Geometry (screen coordinates; the window starts at the top of the screen, over the bar) ──
     // This screen's entry in root.ytmPillGeom (written by its own Bar); empty until that Bar reports
@@ -134,6 +156,8 @@ PanelWindow {
             collapseAnim.stop()
             dropPanelTimer.stop()
             if (!shown) morph = 0
+            queueOpen = false           // each open starts on the cover with the buttons showing
+            volumeOpen = false
             shown = true                // panel up, the copy covers the real pill
             hidePillTimer.restart()     // only then hide the real pill underneath it
             expandAnim.restart()
@@ -185,7 +209,15 @@ PanelWindow {
         if (action === "like") return root.ytmLiked
         if (action === "dislike") return root.ytmDisliked
         if (action === "repeat") return root.ytmLoop
+        if (action === "queue") return queueOpen
+        if (action === "volume") return volumeOpen
         return false
+    }
+
+    function glyphFor(action) {
+        for (var i = 0; i < sideButtons.length; i++)
+            if (sideButtons[i].action === action) return sideButtons[i].icon
+        return ""
     }
 
     function sideAction(action) {
@@ -193,7 +225,14 @@ PanelWindow {
         else if (action === "dislike") { root.ytmDisliked = !root.ytmDisliked; root.ytmCommand("dislike", root.ytmDisliked) }
         else if (action === "shuffle") root.ytmCommand("shuffle")
         else if (action === "repeat") root.ytmCommand("repeat")
-        else if (action === "close") root.activeYtmScreen = null
+        else if (action === "queue") {
+            queueOpen = !queueOpen
+            if (queueOpen) { volumeOpen = false; root.ytmFetchQueue() }
+        }
+        else if (action === "volume") {
+            volumeOpen = !volumeOpen
+            if (volumeOpen) { queueOpen = false; root.ytmReadVolume() }
+        }
     }
 
     // Seconds -> "m:ss"
@@ -241,6 +280,33 @@ PanelWindow {
             color: ytmPanel.mixColor(pillCopy.pillColor, ytmPanel.accent, ytmPanel.morph)
             clip: true
 
+            // Blurred cover art behind everything, blended over the red. ClippingRectangle because
+            // the card's own `clip` is square and would leak the art past the rounded corners.
+            ClippingRectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: "transparent"
+                visible: ytmPanel.artBgStrength > 0 && artSource.status === Image.Ready
+                opacity: ytmPanel.contentFade * ytmPanel.artBgStrength
+
+                Image {
+                    id: artSource
+                    anchors.fill: parent
+                    source: root.ytmArt
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    visible: false              // only the effect below draws it
+                }
+                MultiEffect {
+                    anchors.fill: parent
+                    source: artSource
+                    blurEnabled: true
+                    blur: 1.0
+                    blurMax: ytmPanel.artBgBlur
+                    brightness: ytmPanel.artBgLift
+                }
+            }
+
             ColumnLayout {
                 // Fixed size so the content does not squash while the card grows; fades in during the second half
                 x: ytmPanel.cardPadding
@@ -272,6 +338,64 @@ PanelWindow {
                         source: root.ytmArt
                         fillMode: Image.PreserveAspectCrop
                         smooth: true
+                    }
+
+                    // Flip side of the cover: the upcoming queue (root.ytmQueue, GET /nav/queue).
+                    // White text on a dark scrim, because it sits on top of the artwork.
+                    Rectangle {
+                        anchors.fill: parent
+                        color: Qt.rgba(0, 0, 0, ytmPanel.queueScrim)
+                        opacity: ytmPanel.queueOpen ? 1 : 0
+                        visible: opacity > 0
+                        Behavior on opacity { NumberAnimation { duration: ytmPanel.overlayAnimMs } }
+
+                        ListView {
+                            id: queueList
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            clip: true
+                            spacing: 2
+                            model: root.ytmQueue
+                            delegate: Item {
+                                width: queueList.width
+                                height: ytmPanel.queueRowHeight
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width
+                                    spacing: 1
+                                    Text {
+                                        width: parent.width
+                                        text: (index + 1) + ".  " + (modelData.title ? modelData.title : "")
+                                        color: ytmPanel.active
+                                        font.family: root.fontFamily
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        width: parent.width
+                                        text: (modelData.artist ? modelData.artist : "")
+                                              + "   " + ytmPanel.formatTime(modelData.durationSec)
+                                        color: ytmPanel.active
+                                        opacity: 0.7
+                                        font.family: root.fontFamily
+                                        font.pixelSize: 10
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: queueList.count === 0
+                            text: "Nothing up next"
+                            color: ytmPanel.active
+                            opacity: 0.7
+                            font.family: root.fontFamily
+                            font.pixelSize: 12
+                        }
                     }
                 }
 
@@ -426,7 +550,8 @@ PanelWindow {
                 anchors.right: parent.right
                 anchors.margins: ytmPanel.sidePadding
                 height: ytmPanel.sideHeight - 2 * ytmPanel.sidePadding
-                opacity: ytmPanel.contentFade   // fade with the player, not sliced off by the clip
+                opacity: ytmPanel.contentFade * (1 - ytmPanel.volumeFade)  // fades with the player, and
+                visible: opacity > 0                                       // out when the slider shows
                 spacing: ytmPanel.sideButtons.length > 1
                     ? (height - ytmPanel.sideButtons.length * (ytmPanel.sideWidth - 2 * ytmPanel.sidePadding)) / (ytmPanel.sideButtons.length - 1)
                     : 0
@@ -445,6 +570,87 @@ PanelWindow {
                         activeColor: ytmPanel.active
                         onClicked: ytmPanel.sideAction(modelData.action)
                     }
+                }
+            }
+
+            // Flip side of the side card: a vertical slider for the app's own volume
+            ColumnLayout {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: ytmPanel.sidePadding
+                height: ytmPanel.sideHeight - 2 * ytmPanel.sidePadding
+                opacity: ytmPanel.contentFade * ytmPanel.volumeFade
+                visible: opacity > 0
+                spacing: 8
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    SliderTrack {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: ytmPanel.volTrackWidth
+                        vertical: true
+                        position: root.ytmVolume / 100
+                        fillColor: ytmPanel.ink
+                        emptyColor: ytmPanel.inkWash
+                        showHandle: true
+                        handleColor: ytmPanel.active
+                        handleWidth: 6
+                    }
+
+                    // Click or drag anywhere in the column to set the volume, scroll to nudge it.
+                    // The bar follows the mouse at once; the POST is throttled so a drag does not
+                    // fire one request per pixel.
+                    MouseArea {
+                        id: volArea
+                        anchors.fill: parent
+                        property int pending: -1
+                        function setFromY(y) {
+                            pending = Math.round((1 - Math.max(0, Math.min(1, y / height))) * 100)
+                            root.ytmVolume = pending
+                            volPost.restart()
+                        }
+                        onPressed: mouse => setFromY(mouse.y)
+                        onPositionChanged: mouse => { if (pressed) setFromY(mouse.y) }
+                        onReleased: {
+                            volPost.stop()
+                            if (pending >= 0) root.ytmSetVolume(pending)
+                        }
+                        onWheel: wheel => root.ytmNudgeVolume(wheel.angleDelta.y > 0)
+
+                        Timer {
+                            id: volPost
+                            interval: 120
+                            onTriggered: if (volArea.pending >= 0) root.ytmSetVolume(volArea.pending)
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: root.ytmVolume
+                    color: ytmPanel.ink
+                    font.family: root.fontFamily
+                    font.pixelSize: ytmPanel.timeFontSize
+                    font.bold: true
+                }
+
+                // Flips back to the buttons; same glyph as the list entry
+                IconButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "Volume"
+                    glyph: ytmPanel.glyphFor("volume")
+                    active: true
+                    size: ytmPanel.sideWidth - 2 * ytmPanel.sidePadding
+                    fontFamily: root.fontFamily
+                    baseColor: ytmPanel.inkWash
+                    iconColor: ytmPanel.ink
+                    activeColor: ytmPanel.active
+                    onClicked: ytmPanel.volumeOpen = false
                 }
             }
         }

@@ -34,6 +34,8 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Headphone MAC | `scripts/bt-config.sh` |
 | Music player layout, icons, side buttons | `YtmPanel.qml` → Tweakables (`sideButtons` list) |
 | Music player colors | `YtmPanel.qml` → "Colors": `accent` (red), `ink` (on the red), `active`; the rest derive from them |
+| Blurred cover art behind the player | `YtmPanel.qml` → `artBgStrength` (0 = off), `artBgBlur`, `artBgLift` |
+| How many upcoming tracks the queue lists | `shell.qml` → `ytmQueueMax` |
 
 Conventions when adding code:
 
@@ -75,7 +77,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 
 - Constants: `fontFamily`, `fontSize`, `barHeight`
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
-- Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`; command function `ytmCommand(cmd, body)`
+- Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`, `ytmVolume` (0-100), `ytmQueue[]`; functions `ytmCommand(cmd, body)`, `ytmReadVolume()`, `ytmSetVolume(v)`, `ytmNudgeVolume(up)`, `ytmFetchQueue()`
 - Clipboard: `clipboardIndex`, `clipboardRunning` (fed by `clipboard.py`, work in progress)
 - Layout helpers: `ytmPillGeom` (YtmPill's position in the bar **per monitor**, `{"DP-1": {x, y}}`, written by each screen's Bar through `setYtmPillGeom(screenName, x, y)`), `ytmPanelScreen` (screen whose YtmPanel is showing; YtmPill hides there)
 - Popup visibility: `activeVolumeScreen`, `activePowerScreen`, `activePowerProfileScreen`, `activeWindowScreen`, `activeYtmScreen` (null = hidden, screen ref = show on that screen)
@@ -147,7 +149,7 @@ Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.a
 | `PowerMenu.qml` | Clock middle click | Lock / suspend / reboot / poweroff |
 | `PowerProfileMenu.qml` | BatteryPill middle click | performance / balanced / power-saver |
 | `WindowMenu.qml` | Clock left click | Open windows grouped by desktop; click focuses, F2 opens `EditDialogWindow.qml` |
-| `YtmPanel.qml` | YtmPill left click | Music player: cover, title, artist, seek bar + times, prev / play-pause / next, side column (like, dislike, shuffle, repeat, close) |
+| `YtmPanel.qml` | YtmPill left click | Music player: cover, title, artist, seek bar + times, prev / play-pause / next, side column (like, dislike, shuffle, repeat, queue, volume) |
 | `Clipboard.qml` | nothing yet (`clipboardOpen` is never set) | WIP clipboard picker: 3 placeholder rows, highlighted row follows `root.clipboardIndex` |
 
 ### Scripts (`scripts/`)
@@ -172,10 +174,14 @@ Source: the YouTube Music Desktop 2 (Venipa `ytmdesktop2`) HTTP API at `root.ytm
 - Between polls, while playing, `ytmProgressSeconds` moves forward locally every `ytmTickMs` (100 ms); a poll overrides it only when they differ by more than `ytmResyncSeconds` (1.5 s, e.g. after a seek or track change).
 - Every `ytmPollMs` (500 ms; `ytmIdlePollMs` 2 s while the app is closed): `GET /track/state` → `{id, playing, progress, duration (s), percentage, liked, disliked, loop}`. When `id` changes: `GET /track` → `video.title`, `video.author`, `video.videoId`.
 - Cover art: `root.ytmArt` = `GET /track/thumbnail?id=<videoId>` (served and cached by the app).
-- Commands: `root.ytmCommand(cmd, body)` → `POST /track/<cmd>`: `toggle-play-state`, `next`, `prev`, `seek` `{time: <ms>}`, `like` / `dislike` with `true|false`, `shuffle`, `repeat`, `volume-up` / `volume-down` `{amount}`. After each command the state is re-read.
+- Commands: `root.ytmCommand(cmd, body)` → `POST /track/<cmd>`: `toggle-play-state`, `next`, `prev`, `seek` `{time: <ms>}`, `like` / `dislike` with `true|false`, `shuffle`, `repeat`. After each command the state is re-read.
+- Volume is **not** in `/track/state`: `POST /track/volume` with no body only reports `{volume}` (0-100), with `{volume: n}` it sets it. `ytmReadVolume()` / `ytmSetVolume(v)` / `ytmNudgeVolume(up)` (`volume-up` / `volume-down` with `{amount}`) keep `root.ytmVolume` in step, so the pill's scroll wheel and the panel's slider agree.
+- Queue: `GET /nav/queue` → `{items: [{index, videoId, title, artist, thumbnail, durationSec}], count}`. `ytmFetchQueue()` finds the current `videoId` and keeps the next `ytmQueueMax` tracks in `root.ytmQueue`. Their `thumbnail` URLs point at Google, so the panel lists the queue as text and never loads them.
 - If "require authorization" is on in the app, put the token in `root.ytmApiToken` (sent as `Authorization: Bearer`, and as `?token=` for the cover).
 
-YtmPill is hidden when `ytmAvailable` is false (app closed, API off, or nothing loaded). YtmPanel layout: two cards. The player card (cover / title / artist / seek bar + times / prev, play-pause, next) grows out of the pill: one `morph` value (0 = pill, 1 = player) drives its position, size, corner radius and color from the pill's rectangle to the card centered on the pill, while a copy of the pill crossfades into the content and the real pill hides (`root.ytmPanelScreen`). One ramp (`contentFade`) drives both sides of that crossfade, so their opacities always sum to 1 and the card is never drawn empty. The copy and the real pill live in different windows, so the swap always **overlaps** by `handoffMs`: panel up first then the pill hides, and on the way out the pill returns first then the panel drops. Drawing both for a moment is invisible; drawing neither is a blink. The side card of buttons (like, dislike, shuffle, repeat, close; list in its Tweakables) sits below the bar, `sideGap` to the right, and grows down with the same `morph`; it is shorter than the player card (`sideHeight`) so both end level at `cardBottom`. The pair shifts left if it would leave the screen. The panel window starts at the top of the screen (`ExclusionMode.Ignore`) and uses a `mask` (pill spot + everything below the bar) so the other pills stay clickable. Click where the pill was, or leave the `hoverMargin` (80 px) area, to close. Drag or scroll the seek bar to seek. Cover corners use Quickshell's `ClippingRectangle` (a plain `Rectangle` with `clip: true` does not clip to rounded corners).
+YtmPill is hidden when `ytmAvailable` is false (app closed, API off, or nothing loaded). YtmPanel layout: two cards. The player card (cover / title / artist / seek bar + times / prev, play-pause, next) grows out of the pill: one `morph` value (0 = pill, 1 = player) drives its position, size, corner radius and color from the pill's rectangle to the card centered on the pill, while a copy of the pill crossfades into the content and the real pill hides (`root.ytmPanelScreen`). One ramp (`contentFade`) drives both sides of that crossfade, so their opacities always sum to 1 and the card is never drawn empty. The copy and the real pill live in different windows, so the swap always **overlaps** by `handoffMs`: panel up first then the pill hides, and on the way out the pill returns first then the panel drops. Drawing both for a moment is invisible; drawing neither is a blink. The side card of buttons (like, dislike, shuffle, repeat, queue, volume; list in its Tweakables) sits below the bar, `sideGap` to the right, and grows down with the same `morph`; it is shorter than the player card (`sideHeight`) so both end level at `cardBottom`.
+
+Two overlays, both reset on every open and never shown at once: **queue** flips the cover art over to the upcoming tracks (white text on a dark scrim), and **volume** flips the side card over to a vertical slider (`SliderTrack` with `vertical: true`; drag, click or scroll, and the POST is throttled so a drag is not one request per pixel). There is no close button: leave the hover area or click where the pill is. A blurred copy of the cover art sits behind the card at `artBgStrength`, kept low because the text is the dark `ink`. The pair shifts left if it would leave the screen. The panel window starts at the top of the screen (`ExclusionMode.Ignore`) and uses a `mask` (pill spot + everything below the bar) so the other pills stay clickable. Click where the pill was, or leave the `hoverMargin` (80 px) area, to close. Drag or scroll the seek bar to seek. Cover corners use Quickshell's `ClippingRectangle` (a plain `Rectangle` with `clip: true` does not clip to rounded corners).
 
 ### App icon/name configuration (`scripts/icons.json`)
 

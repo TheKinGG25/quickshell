@@ -57,6 +57,7 @@ ShellRoot {
     property int ytmTickMs: 100         // progress moves locally this often between polls while playing
     property real ytmResyncSeconds: 1.5 // a poll overrides the local progress only if they differ by more (seek, track change)
     property int ytmVolumeStep: 5       // % per scroll notch on YtmPill (the app's own volume)
+    property int ytmQueueMax: 20        // how many upcoming tracks to keep from the queue
 
     // ── Polling intervals (ms) ──
     property int desktopPollMs: 200     // current desktop (Left.qml highlight)
@@ -115,6 +116,8 @@ ShellRoot {
     property bool ytmLiked: false
     property bool ytmDisliked: false
     property bool ytmLoop: false                // repeat is on
+    property int ytmVolume: 100                 // 0..100. Not part of /track/state: read with ytmReadVolume()
+    property var ytmQueue: []                   // upcoming tracks, filled by ytmFetchQueue()
     // Cover art served by the app itself (cached on disk); ?id= busts the image cache on track change
     property string ytmArt: ytmVideoId === "" ? "" :
         ytmApiUrl + "/track/thumbnail?id=" + ytmVideoId + (ytmApiToken ? "&token=" + ytmApiToken : "")
@@ -243,7 +246,10 @@ ShellRoot {
     // GET  /track/state  -> {id, playing, progress, duration (s), percentage, liked, disliked, loop}
     // GET  /track        -> {video: {videoId, title, author, lengthSeconds}, ...}
     // POST /track/<cmd>  -> toggle-play-state, next, prev, seek {time: ms}, like true|false,
-    //                       dislike true|false, shuffle, repeat, volume {volume}
+    //                       dislike true|false, shuffle, repeat
+    // POST /track/volume -> {volume} (0-100); with no body it only reports the current volume
+    // POST /track/volume-up | volume-down {amount} -> {volume}
+    // GET  /nav/queue    -> {items: [{index, videoId, title, artist, thumbnail, durationSec}], count}
     property bool ytmBusy: false        // a state request is in flight
     property string ytmStateId: ""      // track id from the last /track/state, to spot track changes
 
@@ -266,6 +272,41 @@ ShellRoot {
     // Send a player command, e.g. ytmCommand("next") or ytmCommand("seek", {time: 42000})
     function ytmCommand(cmd, body) {
         ytmRequest("POST", "/track/" + cmd, body, function() { ytmPoll() })
+    }
+
+    // ── Volume ── the API never reports it in /track/state, so it is read from the volume endpoint
+    function ytmReadVolume() {
+        ytmRequest("POST", "/track/volume", undefined, function(status, d) {
+            if (d && typeof d.volume === "number") ytmVolume = Math.round(d.volume)
+        })
+    }
+
+    function ytmSetVolume(v) {
+        var n = Math.round(Math.max(0, Math.min(100, v)))
+        ytmVolume = n                   // move the slider now, the reply confirms it
+        ytmRequest("POST", "/track/volume", { volume: n }, function(status, d) {
+            if (d && typeof d.volume === "number") ytmVolume = Math.round(d.volume)
+        })
+    }
+
+    // Scroll on YtmPill, or on the panel's volume slider
+    function ytmNudgeVolume(up) {
+        ytmRequest("POST", "/track/" + (up ? "volume-up" : "volume-down"), { amount: ytmVolumeStep },
+                   function(status, d) {
+                       if (d && typeof d.volume === "number") ytmVolume = Math.round(d.volume)
+                   })
+    }
+
+    // ── Queue ── the tracks after the current one. The queue's own thumbnails are remote Google
+    // URLs, so they are left alone and the panel lists the upcoming tracks as text.
+    function ytmFetchQueue() {
+        ytmRequest("GET", "/nav/queue", undefined, function(status, d) {
+            if (status !== 200 || !d || !d.items) { ytmQueue = []; return }
+            var cur = -1
+            for (var i = 0; i < d.items.length; i++)
+                if (d.items[i].videoId === ytmVideoId) { cur = i; break }
+            ytmQueue = d.items.slice(cur + 1, cur + 1 + ytmQueueMax)
+        })
     }
 
     function ytmPoll() {
@@ -297,6 +338,7 @@ ShellRoot {
                     ytmVideoId = v && v.videoId ? v.videoId : ytmStateId
                     if (v && !(ytmDuration > 0)) ytmDuration = Number(v.lengthSeconds) || 0
                     ytmAvailable = ytmTitle !== ""
+                    if (ytmQueue.length > 0) ytmFetchQueue()    // already open once: keep it current
                 })
             } else {
                 ytmAvailable = ytmTitle !== ""

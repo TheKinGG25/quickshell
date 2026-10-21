@@ -111,9 +111,8 @@ Rectangle {
             if (mouse.button === Qt.LeftButton)
                 root.activeYtmScreen = (root.activeYtmScreen === screen ? null : screen)
         }
-        // Scroll: the YouTube Music app's own volume (step: root.ytmVolumeStep in shell.qml)
-        onWheel: wheel => {
-            root.ytmCommand(wheel.angleDelta.y > 0 ? "volume-up" : "volume-down", { amount: root.ytmVolumeStep })
-        }
+        // Scroll: the YouTube Music app's own volume (step: root.ytmVolumeStep in shell.qml).
+        // ytmNudgeVolume keeps root.ytmVolume in step, so the panel's slider stays correct.
+        onWheel: wheel => root.ytmNudgeVolume(wheel.angleDelta.y > 0)
     }
 }
