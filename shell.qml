@@ -76,7 +76,9 @@ ShellRoot {
     }
 
     // ── Layout helpers written by Bar.qml ──
-    property int ytmPillLeftX: 0        // x of the Right section, YtmPanel opens there
+    property int ytmPillLeftX: 0        // x of the Right section (= YtmPill's left edge), YtmPanel grows from there
+    property int ytmPillTopY: 0         // y of YtmPill inside the bar
+    property var ytmPanelScreen: null   // screen whose YtmPanel is on screen (incl. its close animation); YtmPill hides there
 
     // ── Shared state (filled by the processes below, defaults shown until first read) ──
     property int currentDesktop: 1

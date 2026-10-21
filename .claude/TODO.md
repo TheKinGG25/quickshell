@@ -10,7 +10,7 @@ When something is fixed, delete its row (git history keeps the record). When you
 
 | Score | Effort | Area | Item | Where |
 |------:|:------:|------|------|-------|
-| 5 | M | Music | `ytmPillLeftX` is one global value written by every screen's Bar, so YtmPanel is misplaced on multi-monitor setups with different widths. Store it per screen or compute it inside YtmPanel | `Bar.qml:53`, `YtmPanel.qml` `cardScreenX` |
+| 5 | M | Music | `ytmPillLeftX` / `ytmPillTopY` are global values written by every screen's Bar, so YtmPanel is misplaced on multi-monitor setups with different widths. Store it per screen or compute it inside YtmPanel | `Bar.qml:53`, `YtmPanel.qml` `cardScreenX` |
 | 4 | S | Clipboard | `clipboardProcess` is never started (on purpose until the popup works). Its `onRead` handler uses `root.`, `listView` and `selectEntry()`, none of which exist; `JSON.parse` is not wrapped in `try` | `shell.qml:251-264` |
 
 ## Unfinished features

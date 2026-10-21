@@ -23,6 +23,8 @@ Rectangle {
     property color progressFill: Qt.rgba(0, 0, 0, 0.7)
 
     visible: root.ytmAvailable
+    // Hidden while YtmPanel is open on this screen: the panel draws a copy that grows into the player
+    opacity: root.ytmPanelScreen !== null && root.ytmPanelScreen === screen ? 0 : 1
     width: root.ytmWidth
     height: root.pillHeight
     radius: root.pillRadius
