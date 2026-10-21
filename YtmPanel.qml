@@ -18,7 +18,7 @@ PanelWindow {
     property var root
 
     // ── Tweakables ──
-    property int artSize: 224                   // cover art (square); the player card is this + 2 * cardPadding wide
+    property int artSize: 240                   // cover art (square); the player card is this + 2 * cardPadding wide
     property int cardHeight: 448
     property int cardPadding: 20
     property int cardRadius: 16
@@ -27,7 +27,7 @@ PanelWindow {
     property int sideGap: 10                    // space between the player card and the side card
     property int artRadius: 10                  // cover art corners
     property int topGap: 0                      // space between the bar and the side card (0 = touching)
-    property int hoverMargin: 40                // invisible area around the cards that still counts as "inside"
+    property int hoverMargin: 80                // invisible area around the cards that still counts as "inside"
     property int openAnimMs: 350                // pill -> player morph length
     property int closeAnimMs: 250               // player -> pill morph length
     property int seekWheelStep: 5               // seconds per scroll notch on the seek bar
