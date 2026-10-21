@@ -60,7 +60,7 @@ PanelWindow {
 
     // Derived. Qt.alpha() does not exist in this Qt, hence Qt.rgba() with the ink's channels.
     readonly property color inkWash: Qt.rgba(ink.r, ink.g, ink.b, washAlpha)
-    readonly property color accentDark: Qt.darker(accent, 1.25)   // behind the cover while it loads
+    readonly property color accentDark: Qt.darker(accent, 1)   // behind the cover while it loads
     property int titleFontSize: 17
     property int artistFontSize: 13
     property int timeFontSize: 12
@@ -437,7 +437,7 @@ PanelWindow {
                         id: seekSlider
                         Layout.fillWidth: true
                         implicitHeight: 12
-                        trackHeight: 6
+                        trackHeight: 12
                         from: 0
                         to: Math.max(1, root.ytmDuration)
                         wheelStep: ytmPanel.seekWheelStep
