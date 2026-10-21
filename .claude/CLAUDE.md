@@ -32,7 +32,8 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | A popup's size, radius, offsets | that popup's Tweakables |
 | App icon / name in WindowMenu | `scripts/icons.json` (or F2 in WindowMenu) |
 | Headphone MAC | `scripts/bt-config.sh` |
-| Music player layout, colors, icons, side buttons | `YtmPanel.qml` → Tweakables (`sideButtons` list) |
+| Music player layout, icons, side buttons | `YtmPanel.qml` → Tweakables (`sideButtons` list) |
+| Music player colors | `YtmPanel.qml` → "Color roles" (`m3primary`, `m3surface`, ...) |
 
 Conventions when adding code:
 
@@ -42,6 +43,8 @@ Conventions when adding code:
 - A value used in more than one file goes in `shell.qml` and is read as `root.<name>`.
 - A value used in one file goes in that file's Tweakables block, referenced as `<fileRootId>.<name>` (qualified, so a child's own `color` / `width` cannot shadow it).
 - Do not declare a property whose name the base type already has (e.g. `icon`, `text`, `padding` on a `Button`): Qt refuses FINAL ones with "Cannot override FINAL property". `IconButton` uses `glyph` for that reason.
+- Colors in YtmPanel are Material 3 roles with an `m3` prefix (`m3primary`, `m3onPrimary`, `m3surface`, `m3onSurfaceVariant`, `m3outline`, ...): items pick a role instead of having their own color. Never name a property `onSomething`: QML reads it as a signal handler ("Cannot assign a value to a signal").
+- Hover / press on `IconButton` is a state layer (its icon color at `hoverOpacity` / `pressedOpacity` over `baseColor`), so callers pass no hover color.
 - Nerd Font icons in lists are written as code point escapes (`"\uf011"`, `"\u{f04b2}"`) so they survive copy-paste.
 
 ## Running the shell
@@ -129,7 +132,7 @@ Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.a
 |------|------------|---------|
 | `SliderTrack.qml` | "filled \| gap \| handle \| gap \| empty" bar for a `position` 0..1 | VolumeBarSlider |
 | `VolumeBarSlider.qml` | slider (default 0..100): SliderTrack background, thin handle, scroll wheel (`onMoved` on drag and scroll) | VolumeSlider (master + apps), YtmPanel seek bar |
-| `IconButton.qml` | square button with one Nerd Font icon, hover and active colors | YtmPanel controls + side column |
+| `IconButton.qml` | square button with one Nerd Font icon, active color, state-layer hover / press | YtmPanel controls + side column |
 | `ValuePill.qml` | colored pill, value text left, icon right | VolumePill, BatteryPill |
 | `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
 | `DialogButton.qml` | flat button with hover color | EditDialogWindow |

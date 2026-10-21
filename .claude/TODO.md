@@ -28,4 +28,4 @@ When something is fixed, delete its row (git history keeps the record). When you
 
 | Score | Effort | Item |
 |------:|:------:|------|
-| 5 | M | Music player colors: replace the per-item color variables in YtmPanel (`buttonColor`, `playColor`, `seekFill`, `titleColor`, ...) with a few role colors using the usual naming: `primary` / `onPrimary`, `secondary` / `onSecondary`, `surface` / `onSurface`, `surfaceVariant`, `outline`. Items pick a role. Later the same roles could replace the theme in `shell.qml` |
+| - | - | None open. Add new ones here |

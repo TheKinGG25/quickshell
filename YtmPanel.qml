@@ -30,20 +30,20 @@ PanelWindow {
     property int closeAnimMs: 200               // roll-up animation length
     property int seekWheelStep: 5               // seconds per scroll notch on the seek bar
 
-    property color cardColor: "#ff4444"
-    property color sideColor: "#22000000"       // side column background
-    property color artPlaceholder: "#cc2222"    // behind the cover while it loads
-    property color titleColor: "black"
-    property color artistColor: "#1a0000"
-    property color buttonColor: "#33000000"
-    property color buttonHover: "#55000000"
-    property color iconColor: "black"
-    property color activeIconColor: "white"     // liked / disliked / repeat on
-    property color playColor: "#1a0000"         // the big play / pause button
-    property color playHover: "#000000"
-    property color playIconColor: "#ff4444"
-    property color seekFill: "#1a0000"
-    property color seekEmpty: "#40000000"
+    // Color roles (Material 3 names, `m3` prefix because QML reads any `onX` name as a signal handler).
+    // `m3onX` is the text / icon color drawn on top of `m3X`.
+    // Hover and press need no colors: IconButton overlays its icon color (a "state layer").
+    property color m3primary: "#1a0000"           // play / pause button, seek bar fill
+    property color m3onPrimary: "#ff4444"         // play / pause icon
+    property color m3secondary: "#33000000"       // the other buttons
+    property color m3onSecondary: "black"         // their icons
+    property color m3tertiary: "white"            // icons that are "on" (liked, disliked, repeat)
+    property color m3surface: "#ff4444"           // card background
+    property color m3onSurface: "black"           // title, no-cover icon
+    property color m3surfaceVariant: "#22000000"  // side column background
+    property color m3onSurfaceVariant: "#1a0000"  // artist, times
+    property color m3surfaceContainer: "#cc2222"  // behind the cover while it loads
+    property color m3outline: "#40000000"         // empty part of the seek bar
     property int titleFontSize: 17
     property int artistFontSize: 13
     property int timeFontSize: 12
@@ -139,7 +139,7 @@ PanelWindow {
             height: 0
             clip: true
             radius: ytmPanel.cardRadius
-            color: ytmPanel.cardColor
+            color: ytmPanel.m3surface
 
             NumberAnimation {
                 id: expandAnim
@@ -179,13 +179,13 @@ PanelWindow {
                         Layout.preferredWidth: ytmPanel.artSize
                         Layout.preferredHeight: ytmPanel.artSize
                         radius: ytmPanel.artRadius
-                        color: ytmPanel.artPlaceholder
+                        color: ytmPanel.m3surfaceContainer
 
                         Text {
                             anchors.centerIn: parent
                             visible: cover.status !== Image.Ready
                             text: ytmPanel.noArtIcon
-                            color: ytmPanel.titleColor
+                            color: ytmPanel.m3onSurface
                             font.family: root.fontFamily
                             font.pixelSize: 56
                         }
@@ -207,7 +207,7 @@ PanelWindow {
                         Text {
                             Layout.fillWidth: true
                             text: root.ytmTitle
-                            color: ytmPanel.titleColor
+                            color: ytmPanel.m3onSurface
                             font.pixelSize: ytmPanel.titleFontSize
                             font.family: root.fontFamily
                             font.bold: true
@@ -217,7 +217,7 @@ PanelWindow {
                         Text {
                             Layout.fillWidth: true
                             text: root.ytmArtist
-                            color: ytmPanel.artistColor
+                            color: ytmPanel.m3onSurfaceVariant
                             font.pixelSize: ytmPanel.artistFontSize
                             font.family: root.fontFamily
                             elide: Text.ElideRight
@@ -240,8 +240,8 @@ PanelWindow {
                             from: 0
                             to: Math.max(1, root.ytmDuration)
                             wheelStep: ytmPanel.seekWheelStep
-                            fillColor: ytmPanel.seekFill
-                            emptyColor: ytmPanel.seekEmpty
+                            fillColor: ytmPanel.m3primary
+                            emptyColor: ytmPanel.m3outline
 
                             // Follows playback except while dragging
                             Binding {
@@ -263,14 +263,14 @@ PanelWindow {
                             Layout.fillWidth: true
                             Text {
                                 text: ytmPanel.formatTime(seekSlider.value)
-                                color: ytmPanel.artistColor
+                                color: ytmPanel.m3onSurfaceVariant
                                 font.pixelSize: ytmPanel.timeFontSize
                                 font.family: root.fontFamily
                             }
                             Item { Layout.fillWidth: true }
                             Text {
                                 text: ytmPanel.formatTime(root.ytmDuration)
-                                color: ytmPanel.artistColor
+                                color: ytmPanel.m3onSurfaceVariant
                                 font.pixelSize: ytmPanel.timeFontSize
                                 font.family: root.fontFamily
                             }
@@ -288,9 +288,8 @@ PanelWindow {
                             text: "Previous"
                             glyph: ytmPanel.prevIcon
                             fontFamily: root.fontFamily
-                            baseColor: ytmPanel.buttonColor
-                            hoverColor: ytmPanel.buttonHover
-                            iconColor: ytmPanel.iconColor
+                            baseColor: ytmPanel.m3secondary
+                            iconColor: ytmPanel.m3onSecondary
                             onClicked: root.ytmCommand("prev")
                         }
                         IconButton {
@@ -300,9 +299,8 @@ PanelWindow {
                             iconSize: 24
                             cornerRadius: 12
                             fontFamily: root.fontFamily
-                            baseColor: ytmPanel.playColor
-                            hoverColor: ytmPanel.playHover
-                            iconColor: ytmPanel.playIconColor
+                            baseColor: ytmPanel.m3primary
+                            iconColor: ytmPanel.m3onPrimary
                             onClicked: {
                                 root.ytmPlaying = !root.ytmPlaying     // flip right away, the poll confirms it
                                 root.ytmCommand("toggle-play-state")
@@ -312,9 +310,8 @@ PanelWindow {
                             text: "Next"
                             glyph: ytmPanel.nextIcon
                             fontFamily: root.fontFamily
-                            baseColor: ytmPanel.buttonColor
-                            hoverColor: ytmPanel.buttonHover
-                            iconColor: ytmPanel.iconColor
+                            baseColor: ytmPanel.m3secondary
+                            iconColor: ytmPanel.m3onSecondary
                             onClicked: root.ytmCommand("next")
                         }
                     }
@@ -325,7 +322,7 @@ PanelWindow {
                     Layout.preferredWidth: ytmPanel.sideWidth
                     Layout.fillHeight: true
                     radius: 12
-                    color: ytmPanel.sideColor
+                    color: ytmPanel.m3surfaceVariant
 
                     // Buttons spread evenly from top to bottom
                     Column {
@@ -345,10 +342,9 @@ PanelWindow {
                                 active: ytmPanel.isActive(modelData.action)
                                 size: ytmPanel.sideWidth - 2 * ytmPanel.sidePadding
                                 fontFamily: root.fontFamily
-                                baseColor: ytmPanel.buttonColor
-                                hoverColor: ytmPanel.buttonHover
-                                iconColor: ytmPanel.iconColor
-                                activeColor: ytmPanel.activeIconColor
+                                baseColor: ytmPanel.m3secondary
+                                iconColor: ytmPanel.m3onSecondary
+                                activeColor: ytmPanel.m3tertiary
                                 onClicked: ytmPanel.sideAction(modelData.action)
                             }
                         }
