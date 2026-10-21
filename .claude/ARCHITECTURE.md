@@ -36,7 +36,7 @@ Rules the code follows:
 | File | Kind | Responsibility |
 |------|------|----------------|
 | `shell.qml` | `ShellRoot` | Global state, all polling processes and timers, instantiates every window per screen |
-| `Bar.qml` | `PanelWindow` (Top layer, anchored top/left/right) | 30px translucent strip holding Left / Center / Right. Publishes `ytmPillLeftX` for YtmPanel placement |
+| `Bar.qml` | `PanelWindow` (Top layer, anchored top/left/right) | 30px translucent strip holding Left / Center / Right. Publishes its own screen's YtmPill position (`setYtmPillGeom`) for YtmPanel placement |
 | `Left.qml` | `Row` | `root.desktopCount` desktop numbers, active one white/bold. Click → `kwin-desktop.py <n>` (optimistically sets `currentDesktop`) |
 | `Center.qml` | `MouseArea` | Canvas arc showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu, middle → PowerMenu |
 | `Right.qml` | `Row` | `YtmPill`, `VolumePill`, `BatteryPill` |

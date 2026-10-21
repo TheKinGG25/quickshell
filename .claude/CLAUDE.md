@@ -41,6 +41,7 @@ Conventions when adding code:
 
 - UI that appears more than once becomes a component in `components/` (imported with `import "components"`). Give it named properties for everything it needs; components do not see the caller's scope, so pass `root: <windowId>.root`, never `root: root`.
 - A value used in more than one file goes in `shell.qml` and is read as `root.<name>`.
+- A value that differs **per monitor** must be stored per screen, keyed by `screen.name` (like `ytmPillGeom`): a single shared property gets overwritten by every screen's copy of the window that writes it. Reassign the whole object (`geom = next`), since QML does not notice a change made inside a `var`.
 - A value used in one file goes in that file's Tweakables block, referenced as `<fileRootId>.<name>` (qualified, so a child's own `color` / `width` cannot shadow it).
 - Do not declare a property whose name the base type already has (e.g. `icon`, `text`, `padding` on a `Button`): Qt refuses FINAL ones with "Cannot override FINAL property". `IconButton` uses `glyph` for that reason.
 - Colors in YtmPanel are Material 3 roles with an `m3` prefix (`m3primary`, `m3onPrimary`, `m3surface`, `m3onSurfaceVariant`, `m3outline`, ...): items pick a role instead of having their own color. Never name a property `onSomething`: QML reads it as a signal handler ("Cannot assign a value to a signal").
@@ -75,7 +76,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`; command function `ytmCommand(cmd, body)`
 - Clipboard: `clipboardIndex`, `clipboardRunning` (fed by `clipboard.py`, work in progress)
-- Layout helpers: `ytmPillLeftX` / `ytmPillTopY` (YtmPill's position in the bar, written by Bar.qml), `ytmPanelScreen` (screen whose YtmPanel is showing; YtmPill hides there)
+- Layout helpers: `ytmPillGeom` (YtmPill's position in the bar **per monitor**, `{"DP-1": {x, y}}`, written by each screen's Bar through `setYtmPillGeom(screenName, x, y)`), `ytmPanelScreen` (screen whose YtmPanel is showing; YtmPill hides there)
 - Popup visibility: `activeVolumeScreen`, `activePowerScreen`, `activePowerProfileScreen`, `activeWindowScreen`, `activeYtmScreen` (null = hidden, screen ref = show on that screen)
 
 State is polled by timer-driven `Process` objects in `shell.qml` that run commands / Python scripts and read stdout via `SplitParser`. Every QML component receives `root: shellRoot` and reads state from it directly. Components never own shared state.

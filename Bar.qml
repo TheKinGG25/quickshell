@@ -48,13 +48,14 @@ PanelWindow {
             root: barWindow.root
             screen: barWindow.screen
 
-            // Tells YtmPanel where the pill row is so the player can grow out of YtmPill
-            onXChanged: barWindow.root.ytmPillLeftX = x
-            onYChanged: barWindow.root.ytmPillTopY = y
-            Component.onCompleted: Qt.callLater(() => {
-                barWindow.root.ytmPillLeftX = x
-                barWindow.root.ytmPillTopY = y
-            })
+            // Tells YtmPanel where the pill row is on THIS screen, so the player can grow
+            // out of YtmPill (per screen: each monitor's bar has its own x)
+            function publishPillGeom() {
+                if (barWindow.screen) barWindow.root.setYtmPillGeom(barWindow.screen.name, x, y)
+            }
+            onXChanged: publishPillGeom()
+            onYChanged: publishPillGeom()
+            Component.onCompleted: Qt.callLater(publishPillGeom)
         }
     }
 }

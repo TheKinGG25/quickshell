@@ -67,8 +67,10 @@ PanelWindow {
     ]
 
     // ── Geometry (screen coordinates; the window starts at the top of the screen, over the bar) ──
-    readonly property int pillX: root.ytmPillLeftX
-    readonly property int pillY: root.ytmPillTopY
+    // This screen's entry in root.ytmPillGeom (written by its own Bar); empty until that Bar reports
+    readonly property var pillGeom: screen ? root.ytmPillGeom[screen.name] : undefined
+    readonly property int pillX: pillGeom ? pillGeom.x : 0
+    readonly property int pillY: pillGeom ? pillGeom.y : 0
     readonly property int pillW: root.ytmWidth
     readonly property int pillH: root.pillHeight
     readonly property int playerWidth: artSize + 2 * cardPadding

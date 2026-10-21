@@ -76,9 +76,23 @@ ShellRoot {
     }
 
     // ── Layout helpers written by Bar.qml ──
-    property int ytmPillLeftX: 0        // x of the Right section (= YtmPill's left edge), YtmPanel grows from there
-    property int ytmPillTopY: 0         // y of YtmPill inside the bar
+    // YtmPill's position inside the bar, one entry per monitor keyed by screen name
+    // ({"DP-1": {x, y}}). Not a single shared value: every screen's Bar writes its own x,
+    // so one value would be overwritten by the other monitors and misplace the player there.
+    property var ytmPillGeom: ({})
     property var ytmPanelScreen: null   // screen whose YtmPanel is on screen (incl. its close animation); YtmPill hides there
+
+    // Called by Bar.qml on each screen. Reassigns the whole object, because QML
+    // does not notice a change made inside a `var` (no binding update).
+    function setYtmPillGeom(screenName, x, y) {
+        if (!screenName) return
+        var cur = ytmPillGeom[screenName]
+        if (cur && cur.x === x && cur.y === y) return
+        var next = {}
+        for (var k in ytmPillGeom) next[k] = ytmPillGeom[k]
+        next[screenName] = { "x": x, "y": y }
+        ytmPillGeom = next
+    }
 
     // ── Shared state (filled by the processes below, defaults shown until first read) ──
     property int currentDesktop: 1
