@@ -81,6 +81,9 @@ PanelWindow {
                                                             screen.width - groupWidth - 8))
     readonly property int sideScreenX: cardScreenX + playerWidth + sideGap
     readonly property int sideTop: root.barHeight + topGap
+    readonly property int cardBottom: pillY + cardHeight        // bottom edge of the player card
+    // The side card starts below the bar but ends level with the player card, so it is shorter
+    readonly property int sideHeight: Math.max(0, cardBottom - sideTop)
     // Window = pill + both cards + hoverMargin left, right and below (clamped to the screen)
     readonly property int groupLeft: Math.min(pillX, cardScreenX)
     readonly property int groupRight: Math.max(pillX + pillW, sideScreenX + sideWidth)
@@ -94,7 +97,7 @@ PanelWindow {
     margins.top: 0
     margins.left: windowScreenX
     implicitWidth: groupRight - groupLeft + 2 * hoverMargin
-    implicitHeight: Math.max(pillY, sideTop) + cardHeight + hoverMargin
+    implicitHeight: cardBottom + hoverMargin
     color: "transparent"
 
     // Only the pill's spot in the bar and everything below the bar take the mouse,
@@ -383,7 +386,7 @@ PanelWindow {
             x: ytmPanel.sideScreenX - ytmPanel.windowScreenX
             y: ytmPanel.sideTop
             width: ytmPanel.sideWidth
-            height: ytmPanel.cardHeight * ytmPanel.morph
+            height: ytmPanel.sideHeight * ytmPanel.morph
             visible: height > 0
             clip: true
             radius: ytmPanel.cardRadius
@@ -395,7 +398,7 @@ PanelWindow {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.margins: ytmPanel.sidePadding
-                height: ytmPanel.cardHeight - 2 * ytmPanel.sidePadding
+                height: ytmPanel.sideHeight - 2 * ytmPanel.sidePadding
                 spacing: ytmPanel.sideButtons.length > 1
                     ? (height - ytmPanel.sideButtons.length * (ytmPanel.sideWidth - 2 * ytmPanel.sidePadding)) / (ytmPanel.sideButtons.length - 1)
                     : 0
