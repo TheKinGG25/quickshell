@@ -74,7 +74,7 @@ PanelWindow {
                     Slider {
                         id: masterSlider
                         Layout.fillWidth: true
-                        implicitHeight: 24
+                        implicitHeight: 12
                         from: 0; to: 100
                         stepSize: 1
                         snapMode: Slider.SnapAlways
@@ -154,7 +154,7 @@ PanelWindow {
                         Slider {
                             id: appSlider
                             Layout.fillWidth: true
-                            implicitHeight: 20
+                            implicitHeight: 12
                             from: 0; to: 100
                             stepSize: 1
                             snapMode: Slider.SnapAlways
