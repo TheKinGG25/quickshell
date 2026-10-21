@@ -103,22 +103,6 @@ ShellRoot.ytm*  ──►  YtmPill (bar)  ──click──►  YtmPanel (drop-d
 
 `ytmAvailable` is true only when `available === true` and `title` is non-empty; any parse error sets it to false.
 
-## 5. Known issues / rough edges
+## 5. Known issues and TODO
 
-- **Music feed is manual.** Nothing launches `ytmd-nowplaying.py`, and if it dies the cache file keeps the last state, so the pill keeps showing a stale (frozen) track.
-- **Possible pill flicker.** The script truncates and rewrites the cache file in place; if `cat` lands mid-write the JSON fails to parse and `ytmAvailable` drops to false for one tick. Writing to a temp file and `os.replace` would fix it.
-- **`Bar.qml` line 44** reads `barWindow.root.screen.width`, but `ShellRoot` has no `screen`, so that line throws and `rightLength` is never set (it is also unused).
-- **`ytmPillLeftX` is global**, but every screen's Bar writes it. With monitors of different widths, YtmPanel can be misplaced on all but the last screen to update.
-- **YtmPanel** uses a negative top margin (`-barHeight + 4`) to overlap the bar, has no close animation, keeps a 290px transparent click-catching area, and mixes the red pill theme with Catppuccin blue/grey progress colors.
-- **Unused data:** `ytmPlaying`, `queue[]`, `videoId`. There are no play/pause/skip controls.
-- **`shell.qml` line 46** binds `running: root.activeWindowScreen !== null`, but there is no `root` id in that file (it is `shellRoot`), so that timer binding errors. The 1s timer still refreshes windows while the menu is open.
-- **Mixed paths.** `shell.qml` pollers use cwd-relative paths, so launching from the config dir (as the old docs suggested) breaks desktop, volume, window and music polling. Everything else hardcodes `/home/thekingg/.config/quickshell/`. Battery is hardcoded to `BAT0`.
-- **`PowerProfileMenu.qml` line 105** has a typo, `root.fontFamlily`, so the profile icons lose the Nerd Font and render as boxes.
-
-### Clipboard (work in progress, commit "clipboard visualy ok but not working")
-
-- `shell.qml` declares `id: clipboardProcss` (typo) but `Component.onCompleted` does `clipboardProcess = false`, which references a non-existent id and would not start it anyway (should be `clipboardProcess.running = true`). So `clipboard.py` never runs.
-- Its `onRead` uses `root.`, `listView` and `selectEntry()`, none of which exist in `shell.qml` (the root id is `shellRoot`), and `JSON.parse` is not in a `try`.
-- `Clipboard.qml` is never shown: `clipboardOpen` is local and always false, it has no `activeClipboardScreen` like the other popups, and nothing opens it. It also uses an undefined `focusedIndex` and bare `fontSize`.
-- No real clipboard source yet: the rows are placeholders. KDE's Klipper (`qdbus6 org.kde.klipper /klipper getClipboardHistoryMenu`) or `wl-paste` could feed it.
-- `clipboard.py` reads raw `/dev/input` events (needs the `input` group) and sees every key typed system-wide, not only while the popup is open; `index` is not clamped. Since the window already takes `WlrKeyboardFocus.Exclusive`, QML `Keys.onUpPressed` / `onReturnPressed` would be simpler and safer than evdev.
+Bugs, unfinished features and cleanups, with priority scores, are tracked in [`TODO.md`](TODO.md).

@@ -2,7 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-For a deeper walkthrough (data flow diagrams, per-file responsibilities, polling intervals, known issues) see [`ARCHITECTURE.md`](../ARCHITECTURE.md) at the repo root.
+Docs live in `.claude/`:
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) - deeper walkthrough: data flow diagrams, per-file responsibilities, polling intervals, music pipeline
+- [`TODO.md`](TODO.md) - bugs, unfinished features and cleanups with a priority score. Update it when you fix or find something.
+
+Keep every Markdown file for this project inside `.claude/`.
 
 ## Running the shell
 
