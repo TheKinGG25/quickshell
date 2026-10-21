@@ -1,6 +1,6 @@
 // VolumeSlider.qml - volume popup, top right. Opened by left-clicking VolumePill, closes on mouse leave.
 // Top: master volume (wpctl). Below: one slider per app playing audio (pactl, list from root.appVolumes).
-// Sliders support drag and scroll (scroll step: wheelStep).
+// The slider itself (look, drag, scroll) is components/VolumeBarSlider.qml.
 
 import Quickshell
 import Quickshell.Wayland
@@ -8,6 +8,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "components"
 
 PanelWindow {
     id: volumeWindow
@@ -40,19 +41,13 @@ PanelWindow {
         hoverEnabled: true
         onExited: root.activeVolumeScreen = null
 
-        // Visible card
-        Rectangle {
+        PopupCard {
+            root: volumeWindow.root
             width: volumeWindow.cardWidth
             height: contentColumn.implicitHeight + 20
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.topMargin: 0
-            anchors.rightMargin: 0
-
             radius: volumeWindow.cardRadius
-            color: root.popupBg
-            border.color: root.popupBorder
-            border.width: 1
 
             ColumnLayout {
                 id: contentColumn
@@ -71,13 +66,15 @@ PanelWindow {
                         font.family: root.fontFamily
                         font.bold: true
                     }
-                    Slider {
+                    VolumeBarSlider {
                         id: masterSlider
                         Layout.fillWidth: true
                         implicitHeight: 24
-                        from: 0; to: 100
-                        stepSize: 1
-                        snapMode: Slider.SnapAlways
+                        trackHeight: volumeWindow.masterTrackHeight
+                        wheelStep: volumeWindow.wheelStep
+                        fillColor: volumeWindow.masterFill
+                        emptyColor: root.colSurface
+                        pressedHandleColor: root.colRosewater
 
                         // Follows the live volume except while dragging (root.volumeLevel updates within ~30ms)
                         Binding {
@@ -94,46 +91,6 @@ PanelWindow {
                         }
 
                         Process { id: setMasterVol }
-
-                        // Track: filled part | gap | empty part
-                        background: Item {
-                            implicitHeight: volumeWindow.masterTrackHeight
-                            width: parent.availableWidth
-                            anchors.verticalCenter: parent.verticalCenter
-                            property real handleX: masterSlider.visualPosition * (parent.width - 4)
-                            Rectangle {
-                                height: parent.height
-                                anchors.left: parent.left
-                                width: Math.max(0, parent.handleX - 4)
-                                color: volumeWindow.masterFill
-                                radius: 3
-                            }
-                            Rectangle {
-                                height: parent.height
-                                x: parent.handleX + 8
-                                width: Math.max(0, parent.width - x)
-                                color: root.colSurface
-                                radius: 3
-                            }
-                        }
-
-                        // Thin vertical handle
-                        handle: Rectangle {
-                            x: parent.visualPosition * (parent.availableWidth - width)
-                            y: (parent.height - height) / 2
-                            width: 4; height: volumeWindow.masterTrackHeight; radius: 2
-                            color: parent.pressed ? root.colRosewater : "#ffffff"
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.NoButton
-                            onWheel: (wheel) => {
-                                if (wheel.angleDelta.y > 0) masterSlider.value += volumeWindow.wheelStep
-                                else masterSlider.value -= volumeWindow.wheelStep
-                                masterSlider.moved()
-                            }
-                        }
                     }
                 }
 
@@ -151,13 +108,15 @@ PanelWindow {
                             elide: Text.ElideRight
                             Layout.maximumWidth: volumeWindow.appNameMaxWidth
                         }
-                        Slider {
+                        VolumeBarSlider {
                             id: appSlider
                             Layout.fillWidth: true
                             implicitHeight: 20
-                            from: 0; to: 100
-                            stepSize: 1
-                            snapMode: Slider.SnapAlways
+                            trackHeight: volumeWindow.appTrackHeight
+                            wheelStep: volumeWindow.wheelStep
+                            fillColor: volumeWindow.appFill
+                            emptyColor: root.colSurface
+                            pressedHandleColor: root.colRosewater
                             // Plain initial value, not a Binding: appVolumes is not polled while this
                             // panel is open, so re-applying modelData.volume on release would snap
                             // the handle back to the stale value. The delegate is rebuilt on the next poll.
@@ -170,46 +129,6 @@ PanelWindow {
                             }
 
                             Process { id: setAppVol }
-
-                            // Track: filled part | gap | empty part
-                            background: Item {
-                                implicitHeight: volumeWindow.appTrackHeight
-                                width: parent.availableWidth
-                                anchors.verticalCenter: parent.verticalCenter
-                                property real handleX: appSlider.visualPosition * (parent.width - 4)
-                                Rectangle {
-                                    height: parent.height
-                                    anchors.left: parent.left
-                                    width: Math.max(0, parent.handleX - 4)
-                                    color: volumeWindow.appFill
-                                    radius: 3
-                                }
-                                Rectangle {
-                                    height: parent.height
-                                    x: parent.handleX + 8
-                                    width: Math.max(0, parent.width - x)
-                                    color: root.colSurface
-                                    radius: 3
-                                }
-                            }
-
-                            // Thin vertical handle
-                            handle: Rectangle {
-                                x: parent.visualPosition * (parent.availableWidth - width)
-                                y: (parent.height - height) / 2
-                                width: 4; height: volumeWindow.appTrackHeight; radius: 2
-                                color: parent.pressed ? root.colRosewater : "#ffffff"
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                acceptedButtons: Qt.NoButton
-                                onWheel: (wheel) => {
-                                    if (wheel.angleDelta.y > 0) appSlider.value += volumeWindow.wheelStep
-                                    else appSlider.value -= volumeWindow.wheelStep
-                                    appSlider.moved()
-                                }
-                            }
                         }
                     }
                 }

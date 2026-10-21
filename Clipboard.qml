@@ -9,6 +9,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "components"
 
 PanelWindow {
     id: clipboardWindow
@@ -34,19 +35,13 @@ PanelWindow {
         anchors.fill: parent
         hoverEnabled: true
 
-        // Visible card
-        Rectangle {
+        PopupCard {
+            root: clipboardWindow.root
             width: widthWindow
             height: contentCol.implicitHeight + 20
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.topMargin: 0
-            anchors.rightMargin: 0
-
             radius: 8
-            color: "#DD11111b"
-            border.color: "#313244"
-            border.width: 1
 
             ColumnLayout {
                 id: contentCol

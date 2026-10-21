@@ -12,7 +12,7 @@ When something is fixed, delete its row (git history keeps the record). When you
 |------:|:------:|------|------|-------|
 | 6 | S | Music | Pill freezes on the last track when `ytmd-nowplaying.py` dies, because the cache file keeps its last contents. Add a timestamp to the JSON and treat it as unavailable when older than ~3s | `scripts/ytmd-nowplaying.py`, `shell.qml` ytmProcess |
 | 6 | S | Music | Pill can flicker: the script truncates and rewrites the file in place, so `cat` can read half a file, `JSON.parse` fails and the pill hides for a tick. Write to a temp file and `os.replace` | `scripts/ytmd-nowplaying.py:222` |
-| 5 | M | Music | `ytmPillLeftX` is one global value written by every screen's Bar, so YtmPanel is misplaced on multi-monitor setups with different widths. Store it per screen or compute it inside YtmPanel | `Bar.qml:53`, `YtmPanel.qml:31` |
+| 5 | M | Music | `ytmPillLeftX` is one global value written by every screen's Bar, so YtmPanel is misplaced on multi-monitor setups with different widths. Store it per screen or compute it inside YtmPanel | `Bar.qml:53`, `YtmPanel.qml:32` |
 | 4 | S | Clipboard | `clipboardProcess` is never started (on purpose until the popup works). Its `onRead` handler uses `root.`, `listView` and `selectEntry()`, none of which exist; `JSON.parse` is not wrapped in `try` | `shell.qml:251-264` |
 
 ## Unfinished features

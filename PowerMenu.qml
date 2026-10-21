@@ -8,6 +8,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "components"
 
 PanelWindow {
     id: powerWindow
@@ -55,8 +56,8 @@ PanelWindow {
         hoverEnabled: true
         onExited: root.activePowerScreen = null
 
-        // Visible card
-        Rectangle {
+        PopupCard {
+            root: powerWindow.root
             width: contentRow.implicitWidth + powerWindow.cardPadding
             height: contentRow.implicitHeight + powerWindow.cardPadding
             anchors.horizontalCenter: parent.horizontalCenter
@@ -64,9 +65,6 @@ PanelWindow {
             anchors.topMargin: powerWindow.topOffset // Position the visible menu right below the bar
 
             radius: powerWindow.cardRadius
-            color: root.popupBg
-            border.color: root.popupBorder
-            border.width: 1
 
             RowLayout {
                 id: contentRow

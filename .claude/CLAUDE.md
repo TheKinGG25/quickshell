@@ -23,6 +23,9 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Desktop number colors / spacing | `Left.qml` → Tweakables |
 | Pill order | `Right.qml` |
 | A pill's colors, icons, scroll step | `VolumePill.qml` / `BatteryPill.qml` / `YtmPill.qml` → Tweakables |
+| Layout of the volume / battery pills (padding, min width, fonts) | `components/ValuePill.qml` |
+| Look of every slider and the music progress bar (gap, handle, radius) | `components/SliderTrack.qml`, `components/VolumeBarSlider.qml` |
+| Look of every popup card | `components/PopupCard.qml` (colors: `shell.qml` Theme) |
 | Power menu buttons (add, remove, command, icon) | `PowerMenu.qml` → `buttons` list |
 | Power profiles shown | `PowerProfileMenu.qml` → `profiles` list |
 | A popup's size, radius, offsets | that popup's Tweakables |
@@ -34,6 +37,7 @@ Conventions when adding code:
 
 - On a `PanelWindow` set `implicitWidth` / `implicitHeight`, not `width` / `height` (Quickshell warns that those are deprecated).
 
+- UI that appears more than once becomes a component in `components/` (imported with `import "components"`). Give it named properties for everything it needs; components do not see the caller's scope, so pass `root: <windowId>.root`, never `root: root`.
 - A value used in more than one file goes in `shell.qml` and is read as `root.<name>`.
 - A value used in one file goes in that file's Tweakables block, referenced as `<fileRootId>.<name>` (qualified, so a child's own `color` / `width` cannot shadow it).
 - Nerd Font icons in lists are written as code point escapes (`"\uf011"`, `"\u{f04b2}"`) so they survive copy-paste.
@@ -120,6 +124,16 @@ Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.a
 | YtmPill | Toggle YtmPanel | - | - | - |
 | VolumePill | Open VolumeSlider | Toggle Bluetooth headphones (`volume-toggle-bt.sh`) | Mute toggle | ±1% volume |
 | BatteryPill | - | Open PowerProfileMenu | - | - |
+
+### Reusable components (`components/`)
+
+| File | What it is | Used by |
+|------|------------|---------|
+| `SliderTrack.qml` | "filled \| gap \| handle \| gap \| empty" bar for a `position` 0..1 | VolumeBarSlider, YtmPanel progress |
+| `VolumeBarSlider.qml` | 0..100 slider: SliderTrack background, thin handle, scroll wheel (`onMoved` on drag and scroll) | VolumeSlider (master + apps) |
+| `ValuePill.qml` | colored pill, value text left, icon right | VolumePill, BatteryPill |
+| `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
+| `DialogButton.qml` | flat button with hover color | EditDialogWindow |
 
 ### Popups
 

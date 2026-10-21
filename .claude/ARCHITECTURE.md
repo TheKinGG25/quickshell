@@ -51,6 +51,18 @@ Rules the code follows:
 | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
 | `EditDialogWindow.qml` | `Window` | Edit icon + display name for a `resourceClass`, or blacklist it. Writes through `save-icons-config.py` / `add-to-blacklist.py` |
 
+### Components (`components/`)
+
+Shared building blocks, imported with `import "components"`.
+
+| File | What it is | Used by |
+|------|------------|---------|
+| `SliderTrack.qml` | "filled \| gap \| handle \| gap \| empty" bar for a `position` 0..1 | VolumeBarSlider, YtmPanel progress |
+| `VolumeBarSlider.qml` | 0..100 slider: SliderTrack background, thin handle, scroll wheel (`onMoved` on drag and scroll) | VolumeSlider (master + apps) |
+| `ValuePill.qml` | colored pill, value text left, icon right | VolumePill, BatteryPill |
+| `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
+| `DialogButton.qml` | flat button with hover color | EditDialogWindow |
+
 ### Scripts
 
 | Script | Called by | In → Out |

@@ -7,6 +7,7 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
+import "components"
 
 PanelWindow {
     id: ytmPanel
@@ -145,30 +146,16 @@ PanelWindow {
                     }
                 }
 
-                // Progress bar, same geometry as the VolumeSlider master track
-                Item {
+                // Progress bar, same look as the volume sliders (components/SliderTrack.qml)
+                SliderTrack {
                     Layout.fillWidth: true
                     height: 12
-                    property real prog: root.ytmDuration > 0
+                    position: root.ytmDuration > 0
                         ? Math.max(0, Math.min(1, root.ytmProgressSeconds / root.ytmDuration))
                         : 0
-                    property real hx: prog * (width - 4)
-
-                    Rectangle {
-                        height: parent.height; anchors.left: parent.left
-                        width: Math.max(0, parent.hx - 4)
-                        color: ytmPanel.progressFill; radius: 3
-                    }
-                    Rectangle {
-                        height: parent.height; x: parent.hx + 8
-                        width: Math.max(0, parent.width - x)
-                        color: ytmPanel.progressTrack; radius: 3
-                    }
-                    Rectangle {
-                        x: parent.hx; y: 0
-                        width: 4; height: parent.height; radius: 2
-                        color: "#ffffff"
-                    }
+                    fillColor: ytmPanel.progressFill
+                    emptyColor: ytmPanel.progressTrack
+                    showHandle: true
                 }
             }
         }

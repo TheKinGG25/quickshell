@@ -8,6 +8,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import "components"
 
 Window {
     id: editDialogWindow
@@ -73,12 +74,10 @@ Window {
         }
     }
 
-    Rectangle {
+    PopupCard {
+        root: editDialogWindow.root
         anchors.fill: parent
-        radius: 12
-        color: root ? root.colBlack : "#11111b"
-        border.color: root ? root.popupBorder : "#313244"
-        border.width: 1
+        color: root ? root.colBlack : "#11111b"     // solid, unlike the see-through popups
 
         MouseArea {
             anchors.fill: parent
@@ -111,21 +110,14 @@ Window {
                     font.pixelSize: 12
                 }
 
-                Button {
+                DialogButton {
                     text: selectedIconPath ? "Change Icon" : "Select Icon"
                     Layout.fillWidth: true
                     onClicked: iconFileDialog.open()
-                    contentItem: Text {
-                        text: parent.text
-                        color: editDialogWindow.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.family: editDialogWindow.uiFont
-                    }
-                    background: Rectangle {
-                        color: parent.hovered ? editDialogWindow.buttonHover : editDialogWindow.buttonColor
-                        radius: 4
-                    }
+                    fontFamily: editDialogWindow.uiFont
+                    textColor: editDialogWindow.textColor
+                    baseColor: editDialogWindow.buttonColor
+                    hoverColor: editDialogWindow.buttonHover
                 }
 
                 Text {
@@ -210,55 +202,34 @@ Window {
                 spacing: 10
                 Layout.fillWidth: true
 
-                Button {
+                DialogButton {
                     text: "Save"
                     Layout.fillWidth: true
                     onClicked: saveDialog()
-                    contentItem: Text {
-                        text: parent.text
-                        color: editDialogWindow.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.family: editDialogWindow.uiFont
-                    }
-                    background: Rectangle {
-                        color: parent.hovered ? editDialogWindow.buttonHover : editDialogWindow.buttonColor
-                        radius: 4
-                    }
+                    fontFamily: editDialogWindow.uiFont
+                    textColor: editDialogWindow.textColor
+                    baseColor: editDialogWindow.buttonColor
+                    hoverColor: editDialogWindow.buttonHover
                 }
 
-                Button {
+                DialogButton {
                     text: "Cancel"
                     Layout.fillWidth: true
                     onClicked: closeDialog()
-                    contentItem: Text {
-                        text: parent.text
-                        color: editDialogWindow.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.family: editDialogWindow.uiFont
-                    }
-                    background: Rectangle {
-                        color: parent.hovered ? editDialogWindow.buttonHover : editDialogWindow.buttonColor
-                        radius: 4
-                    }
+                    fontFamily: editDialogWindow.uiFont
+                    textColor: editDialogWindow.textColor
+                    baseColor: editDialogWindow.buttonColor
+                    hoverColor: editDialogWindow.buttonHover
                 }
 
-                Button {
+                DialogButton {
                     text: "Blacklist"
                     Layout.fillWidth: true
                     onClicked: blacklistApp()
-                    contentItem: Text {
-                        text: parent.text
-                        color: editDialogWindow.dangerText
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.family: editDialogWindow.uiFont
-                    }
-                    background: Rectangle {
-                        color: parent.hovered ? editDialogWindow.dangerHover : editDialogWindow.dangerColor
-                        radius: 4
-                    }
+                    fontFamily: editDialogWindow.uiFont
+                    textColor: editDialogWindow.dangerText
+                    baseColor: editDialogWindow.dangerColor
+                    hoverColor: editDialogWindow.dangerHover
                 }
             }
         }

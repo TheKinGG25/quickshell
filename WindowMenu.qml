@@ -9,6 +9,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "components"
 
 PanelWindow {
     id: windowMenu
@@ -78,8 +79,8 @@ PanelWindow {
             closeMenuTimer.stop()
         }
 
-        // Visible card
-        Rectangle {
+        PopupCard {
+            root: windowMenu.root
             width: parent.width - 40
             height: Math.min(column.implicitHeight + 40, windowMenu.maxCardHeight)
             anchors.horizontalCenter: parent.horizontalCenter
@@ -87,9 +88,6 @@ PanelWindow {
             anchors.topMargin: windowMenu.topOffset
 
             radius: windowMenu.cardRadius
-            color: root.popupBg
-            border.color: root.popupBorder
-            border.width: 1
 
             ColumnLayout {
                 id: column

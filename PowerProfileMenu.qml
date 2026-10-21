@@ -8,6 +8,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "components"
 
 PanelWindow {
     id: profileWindow
@@ -45,19 +46,13 @@ PanelWindow {
         hoverEnabled: true
         onExited: root.activePowerProfileScreen = null
 
-        // Visible card
-        Rectangle {
+        PopupCard {
+            root: profileWindow.root
             width: profileWindow.cardWidth
             height: contentCol.implicitHeight + 24
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.topMargin: 0
-            anchors.rightMargin: 0
-
             radius: profileWindow.cardRadius
-            color: root.popupBg
-            border.color: root.popupBorder
-            border.width: 1
 
             ColumnLayout {
                 id: contentCol
