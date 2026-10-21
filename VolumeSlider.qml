@@ -21,8 +21,7 @@ PanelWindow {
     property string masterLabel: "Master Volume: "
     property color masterFill: root.colBlue     // filled part of the master slider
     property color appFill: root.colMauve       // filled part of the app sliders
-    property int masterTrackHeight: 12
-    property int appTrackHeight: 10
+    property int trackHeight: 12
     property int appNameMaxWidth: 230           // long app names are cut with "..."
 
     anchors { top: true; right: true }
@@ -69,8 +68,7 @@ PanelWindow {
                     VolumeBarSlider {
                         id: masterSlider
                         Layout.fillWidth: true
-                        implicitHeight: 12
-                        trackHeight: volumeWindow.masterTrackHeight
+                        trackHeight: volumeWindow.trackHeight
                         wheelStep: volumeWindow.wheelStep
                         fillColor: volumeWindow.masterFill
                         emptyColor: root.colSurface
@@ -111,8 +109,7 @@ PanelWindow {
                         VolumeBarSlider {
                             id: appSlider
                             Layout.fillWidth: true
-                            implicitHeight: 12
-                            trackHeight: volumeWindow.appTrackHeight
+                            trackHeight: volumeWindow.trackHeight
                             wheelStep: volumeWindow.wheelStep
                             fillColor: volumeWindow.appFill
                             emptyColor: root.colSurface
