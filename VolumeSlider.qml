@@ -69,7 +69,7 @@ PanelWindow {
                     VolumeBarSlider {
                         id: masterSlider
                         Layout.fillWidth: true
-                        implicitHeight: 24
+                        implicitHeight: 12
                         trackHeight: volumeWindow.masterTrackHeight
                         wheelStep: volumeWindow.wheelStep
                         fillColor: volumeWindow.masterFill
@@ -111,7 +111,7 @@ PanelWindow {
                         VolumeBarSlider {
                             id: appSlider
                             Layout.fillWidth: true
-                            implicitHeight: 20
+                            implicitHeight: 12
                             trackHeight: volumeWindow.appTrackHeight
                             wheelStep: volumeWindow.wheelStep
                             fillColor: volumeWindow.appFill
