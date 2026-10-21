@@ -33,7 +33,7 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | App icon / name in WindowMenu | `scripts/icons.json` (or F2 in WindowMenu) |
 | Headphone MAC | `scripts/bt-config.sh` |
 | Music player layout, icons, side buttons | `YtmPanel.qml` → Tweakables (`sideButtons` list) |
-| Music player colors | `YtmPanel.qml` → "Color roles" (`m3primary`, `m3surface`, ...) |
+| Music player colors | `YtmPanel.qml` → "Colors": `accent` (red), `ink` (on the red), `active`; the rest derive from them |
 
 Conventions when adding code:
 
@@ -44,7 +44,8 @@ Conventions when adding code:
 - A value that differs **per monitor** must be stored per screen, keyed by `screen.name` (like `ytmPillGeom`): a single shared property gets overwritten by every screen's copy of the window that writes it. Reassign the whole object (`geom = next`), since QML does not notice a change made inside a `var`.
 - A value used in one file goes in that file's Tweakables block, referenced as `<fileRootId>.<name>` (qualified, so a child's own `color` / `width` cannot shadow it).
 - Do not declare a property whose name the base type already has (e.g. `icon`, `text`, `padding` on a `Button`): Qt refuses FINAL ones with "Cannot override FINAL property". `IconButton` uses `glyph` for that reason.
-- Colors in YtmPanel are Material 3 roles with an `m3` prefix (`m3primary`, `m3onPrimary`, `m3surface`, `m3onSurfaceVariant`, `m3outline`, ...): items pick a role instead of having their own color. Never name a property `onSomething`: QML reads it as a signal handler ("Cannot assign a value to a signal").
+- Name one variable per actual color, not per use site. YtmPanel has three (`accent`, `ink`, `active`) and derives its shades (`inkWash`, `accentDark`), so a recolor is a one-line change; it used to carry ten names for the same three colors. `Qt.alpha()` does not exist in this Qt: fade a color with `Qt.rgba(c.r, c.g, c.b, a)`.
+- Never name a property `onSomething`: QML reads it as a signal handler ("Cannot assign a value to a signal").
 - Hover / press on `IconButton` is a state layer (its icon color at `hoverOpacity` / `pressedOpacity` over `baseColor`), so callers pass no hover color.
 - Nerd Font icons in lists are written as code point escapes (`"\uf011"`, `"\u{f04b2}"`) so they survive copy-paste.
 
