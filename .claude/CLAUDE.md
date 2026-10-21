@@ -41,6 +41,7 @@ Conventions when adding code:
 - UI that appears more than once becomes a component in `components/` (imported with `import "components"`). Give it named properties for everything it needs; components do not see the caller's scope, so pass `root: <windowId>.root`, never `root: root`.
 - A value used in more than one file goes in `shell.qml` and is read as `root.<name>`.
 - A value used in one file goes in that file's Tweakables block, referenced as `<fileRootId>.<name>` (qualified, so a child's own `color` / `width` cannot shadow it).
+- Do not declare a property whose name the base type already has (e.g. `icon`, `text`, `padding` on a `Button`): Qt refuses FINAL ones with "Cannot override FINAL property". `IconButton` uses `glyph` for that reason.
 - Nerd Font icons in lists are written as code point escapes (`"\uf011"`, `"\u{f04b2}"`) so they survive copy-paste.
 
 ## Running the shell

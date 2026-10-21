@@ -261,7 +261,7 @@ PanelWindow {
 
                         IconButton {
                             text: "Previous"
-                            icon: ytmPanel.prevIcon
+                            glyph: ytmPanel.prevIcon
                             fontFamily: root.fontFamily
                             baseColor: ytmPanel.buttonColor
                             hoverColor: ytmPanel.buttonHover
@@ -270,7 +270,7 @@ PanelWindow {
                         }
                         IconButton {
                             text: root.ytmPlaying ? "Pause" : "Play"
-                            icon: root.ytmPlaying ? ytmPanel.pauseIcon : ytmPanel.playIcon
+                            glyph: root.ytmPlaying ? ytmPanel.pauseIcon : ytmPanel.playIcon
                             size: 52
                             iconSize: 24
                             cornerRadius: 12
@@ -285,7 +285,7 @@ PanelWindow {
                         }
                         IconButton {
                             text: "Next"
-                            icon: ytmPanel.nextIcon
+                            glyph: ytmPanel.nextIcon
                             fontFamily: root.fontFamily
                             baseColor: ytmPanel.buttonColor
                             hoverColor: ytmPanel.buttonHover
@@ -315,8 +315,8 @@ PanelWindow {
                             model: ytmPanel.sideButtons
                             delegate: IconButton {
                                 text: modelData.label
-                                icon: modelData.icon
-                                activeIcon: modelData.activeIcon
+                                glyph: modelData.icon
+                                activeGlyph: modelData.activeIcon
                                 active: ytmPanel.isActive(modelData.action)
                                 size: ytmPanel.sideWidth - 2 * ytmPanel.sidePadding
                                 fontFamily: root.fontFamily

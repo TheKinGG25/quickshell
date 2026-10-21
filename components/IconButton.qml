@@ -1,6 +1,7 @@
 // IconButton.qml - square button showing one Nerd Font icon, with hover and "active" colors.
 // Used by the YtmPanel player controls and its side column.
-// Set `icon` (and `activeIcon` / `active` for toggles like "liked"), `onClicked`, and the colors.
+// Set `glyph` (and `activeGlyph` / `active` for toggles like "liked"), `onClicked`, and the colors.
+// Not called `icon`: Button already has a built-in (FINAL) `icon` property that cannot be redefined.
 
 import QtQuick
 import QtQuick.Controls
@@ -8,8 +9,8 @@ import QtQuick.Controls
 Button {
     id: btn
 
-    property string icon: ""
-    property string activeIcon: ""                  // shown instead of `icon` while active (empty = same icon)
+    property string glyph: ""
+    property string activeGlyph: ""                 // shown instead of `glyph` while active (empty = same glyph)
     property bool active: false                     // e.g. liked / repeat on
     property int size: 44
     property int iconSize: 20
@@ -26,7 +27,7 @@ Button {
     Accessible.name: text                           // text is the tooltip-style label, not drawn
 
     contentItem: Text {
-        text: btn.active && btn.activeIcon !== "" ? btn.activeIcon : btn.icon
+        text: btn.active && btn.activeGlyph !== "" ? btn.activeGlyph : btn.glyph
         color: btn.active ? btn.activeColor : btn.iconColor
         font.family: btn.fontFamily
         font.pixelSize: btn.iconSize
