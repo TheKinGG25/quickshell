@@ -102,14 +102,14 @@ PanelWindow {
 
             Text {
                 text: pbControl.btnIcon
-                font.family: root ? root.fontFamily : "sans-serif"
+                font.family: root.fontFamlily
                 font.pixelSize: 18
                 color: pbControl.isActive ? pbControl.btnColor : "#7f849c"
                 Layout.leftMargin: 2
             }
             Text {
                 text: pbControl.label
-                font.family: root ? root.fontFamily : "sans-serif"
+                font.family: root.fontFamily
                 font.pixelSize: 13
                 color: pbControl.isActive ? pbControl.btnColor : "#cdd6f4"
                 font.bold: pbControl.isActive

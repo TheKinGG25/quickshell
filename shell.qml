@@ -34,6 +34,8 @@ ShellRoot {
     property int ytmProgress: 0
     property real ytmProgressSeconds: 0
     property real ytmDuration: 0
+    property int clipboardIndex: 0
+    property bool clipboardRunning: false
     property var activeWindowScreen: null
     onActiveWindowScreenChanged: {
         if (activeWindowScreen) windowsProcess.running = true
@@ -52,7 +54,7 @@ ShellRoot {
     
     Process {
         id: windowsProcess
-        command: ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-windows.py"]
+        command: ["python3", ".config/quickshell/scripts/kwin-windows.py"]
         stdout: SplitParser {
             onRead: data => {
                 try {
@@ -80,7 +82,7 @@ ShellRoot {
 
     Process {
         id: appVolumesProcess
-        command: ["python3", "/home/thekingg/.config/quickshell/scripts/app-volumes.py"]
+        command: ["python3", ".config/quickshell/scripts/app-volumes.py"]
         stdout: SplitParser {
             onRead: data => {
                 try {
@@ -95,7 +97,7 @@ ShellRoot {
 
     Process {
         id: desktopProcess
-        command: ["python3", "/home/thekingg/.config/quickshell/scripts/kwin-desktop.py"]
+        command: ["python3", ".config/quickshell/scripts/kwin-desktop.py"]
         stdout: SplitParser {
             onRead: data => {
                 var n = parseInt(data.trim())
@@ -146,7 +148,7 @@ ShellRoot {
 
     Process {
         id: ytmProcess
-        command: ["cat", "/home/thekingg/.cache/ytmd-now.json"]
+        command: ["cat", ".cache/ytmd-now.json"]
         stdout: SplitParser {
             onRead: data => {
                 try {
@@ -175,6 +177,23 @@ ShellRoot {
             onRead: data => {
                 var p = data.trim()
                 if (p.length > 0) powerProfile = p
+            }
+        }
+    }
+
+    Process {
+    	id: clipboardProcss
+        command: ["python3", ".config/quickshell/scripts/clipboard.py"]
+        stdout: SplitParser {
+            onRead: (line) => {
+                const data = JSON.parse(line)
+                root.clipboardRunning = data.running
+                root.clipboardIndex = Math.max(0, Math.min(data.index, listView.count - 1))
+
+                if (!data.running) {
+                    // Enter was pressed: act on the selected entry, then close
+                    selectEntry(root.clipboardIndex)
+                }
             }
         }
     }
@@ -223,6 +242,7 @@ ShellRoot {
         windowsProcess.running = true
         powerProfileProcess.running = true
         ytmProcess.running = true
+        clipboardProcess = false
     }
 
     Variants {
@@ -277,5 +297,14 @@ ShellRoot {
             root: shellRoot
             screen: modelData
         }
+    }
+
+    Variants {
+    	model: Quickshell.screens
+    	Clipboard {
+    		required property var modelData
+    		root: shellRoot
+    		screen: modelData
+    	}
     }
 }

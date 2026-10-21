@@ -15,6 +15,14 @@
     "YouTube Music for Desktop": {
       "icon": "/home/thekingg/ytmdesktop2/resources/favicon.png",
       "displayName": "YouTube Music"
+    },
+    "ytmdesktop2": {
+      "icon": "/home/thekingg/Pictures/icons/ytmd2icon.ico",
+      "displayName": "YouTube Music"
+    },
+    "org.kde.dolphin": {
+      "icon": "org.kde.dolphin",
+      "displayName": "Dolphin"
     }
   },
   "blacklist": [
