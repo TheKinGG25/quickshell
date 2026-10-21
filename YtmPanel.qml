@@ -1,10 +1,12 @@
 // YtmPanel.qml - music player card that drops down under YtmPill (left click on the pill toggles it).
 // Layout: [ cover art / title / artist / seek bar + times / prev play next ] [ side button column ]
 // Data and commands: root.ytm* and root.ytmCommand() in shell.qml (YouTube Music Desktop 2 API).
-// Closes when the mouse leaves the card. Side buttons are a list in Tweakables (`sideButtons`).
+// Closes when the mouse leaves the hover area (the card + hoverMargin around it).
+// Side buttons are a list in Tweakables (`sideButtons`).
 
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 import "components"
@@ -21,8 +23,11 @@ PanelWindow {
     property int columnGap: 20                  // between the player column and the side column
     property int sideWidth: 56                  // side button column
     property int sidePadding: 6
-    property int topGap: 4                      // space between the bar and the card
+    property int artRadius: 10                  // cover art corners
+    property int topGap: 0                      // space between the bar and the card (0 = touching)
+    property int hoverMargin: 40                // invisible area around the card that still counts as "inside"
     property int openAnimMs: 300                // drop-down animation length
+    property int closeAnimMs: 200               // roll-up animation length
     property int seekWheelStep: 5               // seconds per scroll notch on the seek bar
 
     property color cardColor: "#ff4444"
@@ -63,23 +68,36 @@ PanelWindow {
     // Width left for the cover art / player column
     readonly property int artSize: cardWidth - 2 * cardPadding - columnGap - sideWidth
 
+    // Card's left edge on screen: under the pill, but never past the right screen edge
+    readonly property int cardScreenX: Math.max(0, Math.min(root.ytmPillLeftX, screen.width - cardWidth - 8))
+    // Window = card + hoverMargin left, right and below (clamped to the screen)
+    readonly property int windowScreenX: Math.max(0, Math.min(cardScreenX - hoverMargin, screen.width - implicitWidth))
+
     anchors { top: true; left: true }
     margins.top: topGap
-    // Open under the pill, but never past the right screen edge
-    margins.left: Math.max(0, Math.min(root.ytmPillLeftX, screen.width - cardWidth - 8))
-    implicitWidth: cardWidth
-    implicitHeight: cardHeight
+    margins.left: windowScreenX
+    implicitWidth: cardWidth + 2 * hoverMargin
+    implicitHeight: cardHeight + hoverMargin
     color: "transparent"
-    visible: root.activeYtmScreen === screen
+
+    // `shown` lags behind `wantOpen` on close so the roll-up animation can play
+    readonly property bool wantOpen: root.activeYtmScreen === screen
+    property bool shown: false
+    visible: shown
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-    // Replay the drop-down animation every time it opens
-    onVisibleChanged: {
-        if (visible) {
-            card.height = 0
-            expandAnim.running = true
+    // Drop down on open, roll up on close
+    onWantOpenChanged: {
+        if (wantOpen) {
+            collapseAnim.stop()
+            if (!shown) card.height = 0
+            shown = true
+            expandAnim.restart()
+        } else {
+            expandAnim.stop()
+            collapseAnim.restart()
         }
     }
 
@@ -115,9 +133,9 @@ PanelWindow {
         // Visible card (its height animates from 0 to cardHeight)
         Rectangle {
             id: card
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
+            x: ytmPanel.cardScreenX - ytmPanel.windowScreenX
+            y: 0
+            width: ytmPanel.cardWidth
             height: 0
             clip: true
             radius: ytmPanel.cardRadius
@@ -127,10 +145,18 @@ PanelWindow {
                 id: expandAnim
                 target: card
                 property: "height"
-                from: 0
                 to: ytmPanel.cardHeight
                 duration: ytmPanel.openAnimMs
                 easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                id: collapseAnim
+                target: card
+                property: "height"
+                to: 0
+                duration: ytmPanel.closeAnimMs
+                easing.type: Easing.InCubic
+                onFinished: if (!ytmPanel.wantOpen) ytmPanel.shown = false
             }
 
             RowLayout {
@@ -148,12 +174,11 @@ PanelWindow {
                     Layout.fillHeight: true
                     spacing: 0
 
-                    // Cover art
-                    Rectangle {
+                    // Cover art. ClippingRectangle (not Rectangle + clip) so the image follows the rounded corners
+                    ClippingRectangle {
                         Layout.preferredWidth: ytmPanel.artSize
                         Layout.preferredHeight: ytmPanel.artSize
-                        radius: 10
-                        clip: true
+                        radius: ytmPanel.artRadius
                         color: ytmPanel.artPlaceholder
 
                         Text {

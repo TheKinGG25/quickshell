@@ -1,6 +1,6 @@
 // YtmPill.qml - "now playing" pill (YouTube Music Desktop).
 // Shows cover thumbnail, title, artist and a thin progress line. Hidden when nothing is playing.
-// Left click: toggle YtmPanel. Data: root.ytm* in shell.qml. Width: root.ytmWidth.
+// Left click: toggle YtmPanel. Scroll: app volume up / down. Data: root.ytm* in shell.qml. Width: root.ytmWidth.
 
 import QtQuick
 
@@ -108,6 +108,10 @@ Rectangle {
         onClicked: mouse => {
             if (mouse.button === Qt.LeftButton)
                 root.activeYtmScreen = (root.activeYtmScreen === screen ? null : screen)
+        }
+        // Scroll: the YouTube Music app's own volume (step: root.ytmVolumeStep in shell.qml)
+        onWheel: wheel => {
+            root.ytmCommand(wheel.angleDelta.y > 0 ? "volume-up" : "volume-down", { amount: root.ytmVolumeStep })
         }
     }
 }

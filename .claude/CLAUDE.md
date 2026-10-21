@@ -119,7 +119,7 @@ Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.a
 
 | Pill | Left click | Middle click | Right click | Scroll |
 |------|-----------|--------------|-------------|--------|
-| YtmPill | Toggle YtmPanel | - | - | - |
+| YtmPill | Toggle YtmPanel | - | - | App volume ±`ytmVolumeStep`% (API `volume-up` / `volume-down`) |
 | VolumePill | Open VolumeSlider | Toggle Bluetooth headphones (`volume-toggle-bt.sh`) | Mute toggle | ±1% volume |
 | BatteryPill | - | Open PowerProfileMenu | - | - |
 
@@ -164,12 +164,13 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 
 Source: the YouTube Music Desktop 2 (Venipa `ytmdesktop2`) HTTP API at `root.ytmApiUrl` (`http://127.0.0.1:13091`, enable it in the app's API settings). No helper script: `shell.qml` talks to it with `XMLHttpRequest`.
 
+- Between polls, while playing, `ytmProgressSeconds` moves forward locally every `ytmTickMs` (100 ms); a poll overrides it only when they differ by more than `ytmResyncSeconds` (1.5 s, e.g. after a seek or track change).
 - Every `ytmPollMs` (500 ms; `ytmIdlePollMs` 2 s while the app is closed): `GET /track/state` → `{id, playing, progress, duration (s), percentage, liked, disliked, loop}`. When `id` changes: `GET /track` → `video.title`, `video.author`, `video.videoId`.
 - Cover art: `root.ytmArt` = `GET /track/thumbnail?id=<videoId>` (served and cached by the app).
-- Commands: `root.ytmCommand(cmd, body)` → `POST /track/<cmd>`: `toggle-play-state`, `next`, `prev`, `seek` `{time: <ms>}`, `like` / `dislike` with `true|false`, `shuffle`, `repeat`. After each command the state is re-read.
+- Commands: `root.ytmCommand(cmd, body)` → `POST /track/<cmd>`: `toggle-play-state`, `next`, `prev`, `seek` `{time: <ms>}`, `like` / `dislike` with `true|false`, `shuffle`, `repeat`, `volume-up` / `volume-down` `{amount}`. After each command the state is re-read.
 - If "require authorization" is on in the app, put the token in `root.ytmApiToken` (sent as `Authorization: Bearer`, and as `?token=` for the cover).
 
-YtmPill is hidden when `ytmAvailable` is false (app closed, API off, or nothing loaded). YtmPanel layout: cover / title / artist / seek bar + times / prev, play-pause, next on the left; a side column of buttons (like, dislike, shuffle, repeat, close; list in its Tweakables) on the right. Drag or scroll the seek bar to seek.
+YtmPill is hidden when `ytmAvailable` is false (app closed, API off, or nothing loaded). YtmPanel layout: cover / title / artist / seek bar + times / prev, play-pause, next on the left; a side column of buttons (like, dislike, shuffle, repeat, close; list in its Tweakables) on the right. Drag or scroll the seek bar to seek. The card touches the bar, has a `hoverMargin` (40 px) of invisible hover area around it, drops down on open and rolls up on close. Cover corners use Quickshell's `ClippingRectangle` (a plain `Rectangle` with `clip: true` does not clip to rounded corners).
 
 ### App icon/name configuration (`scripts/icons.json`)
 

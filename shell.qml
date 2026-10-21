@@ -54,6 +54,9 @@ ShellRoot {
     property string ytmApiToken: ""     // only needed if "require authorization" is on in the app's API settings
     property int ytmPollMs: 500         // how often /track/state is read while the app is running
     property int ytmIdlePollMs: 2000    // how often to retry while the app is closed
+    property int ytmTickMs: 100         // progress moves locally this often between polls while playing
+    property real ytmResyncSeconds: 1.5 // a poll overrides the local progress only if they differ by more (seek, track change)
+    property int ytmVolumeStep: 5       // % per scroll notch on YtmPill (the app's own volume)
 
     // ── Polling intervals (ms) ──
     property int desktopPollMs: 200     // current desktop (Left.qml highlight)
@@ -262,9 +265,11 @@ ShellRoot {
             ytmLiked = s.liked === true
             ytmDisliked = s.disliked === true
             ytmLoop = s.loop === true
-            ytmProgressSeconds = Number(s.progress) || 0
             if (Number(s.duration) > 0) ytmDuration = Number(s.duration)
-            ytmProgress = Math.round(Math.max(0, Math.min(100, Number(s.percentage) || 0)))
+            // The app's progress lags a little behind the local tick, so small differences are ignored
+            var p = Number(s.progress) || 0
+            if (!ytmPlaying || Math.abs(p - ytmProgressSeconds) > ytmResyncSeconds) ytmProgressSeconds = p
+            ytmUpdatePercent()
 
             // New track (or first read): fetch title / artist
             if (s.id !== ytmStateId || ytmTitle === "") {
@@ -281,6 +286,26 @@ ShellRoot {
                 ytmAvailable = ytmTitle !== ""
             }
         })
+    }
+
+    function ytmUpdatePercent() {
+        ytmProgress = ytmDuration > 0 ? Math.round(Math.max(0, Math.min(100, ytmProgressSeconds / ytmDuration * 100))) : 0
+    }
+
+    // Moves the progress forward between polls so the seek bar and the pill line run smoothly
+    Timer {
+        id: ytmTick
+        property real last: 0
+        interval: ytmTickMs
+        running: ytmAvailable && ytmPlaying
+        repeat: true
+        onRunningChanged: last = Date.now()
+        onTriggered: {
+            var now = Date.now()
+            ytmProgressSeconds = Math.min(ytmDuration > 0 ? ytmDuration : Infinity, ytmProgressSeconds + (now - last) / 1000)
+            last = now
+            ytmUpdatePercent()
+        }
     }
 
     Timer {
