@@ -139,13 +139,10 @@ PanelWindow {
                             from: 0; to: 100
                             stepSize: 1
                             snapMode: Slider.SnapAlways
-
-                            Binding {
-                                target: appSlider
-                                property: "value"
-                                value: modelData.volume
-                                when: !appSlider.pressed
-                            }
+                            // Plain initial value, not a Binding: appVolumes is not polled while this
+                            // panel is open, so re-applying modelData.volume on release would snap
+                            // the handle back to the stale value. The delegate is rebuilt on the next poll.
+                            value: modelData.volume
 
                             onMoved: {
                                 setAppVol.command = ["pactl", "set-sink-input-volume", modelData.id, Math.round(value) + "%"]
