@@ -24,7 +24,7 @@ ShellRoot {
     property int pillHeight: 22         // height of every pill in Right.qml
     property int pillRadius: 6          // corner radius of the pills
     property int desktopCount: 6        // number of desktops shown in Left.qml and WindowMenu tabs
-    property int ytmWidth: 280          // width of YtmPill and of the YtmPanel under it
+    property int ytmWidth: 280          // width of YtmPill
 
     // ── Theme (Catppuccin Mocha) ── change a color here and every file follows
     property color popupBg: "#DD11111b"     // popup card background (DD = ~87% opacity)
@@ -48,12 +48,17 @@ ShellRoot {
     // ── Paths ──
     property string homeDir: Quickshell.env("HOME")
     property string scriptsDir: homeDir + "/.config/quickshell/scripts"
-    property string ytmCacheFile: homeDir + "/.cache/ytmd-now.json"   // written by scripts/ytmd-nowplaying.py
+
+    // ── Music (YouTube Music Desktop 2 API) ──
+    property string ytmApiUrl: "http://127.0.0.1:13091"   // ytmdesktop2: Settings -> API
+    property string ytmApiToken: ""     // only needed if "require authorization" is on in the app's API settings
+    property int ytmPollMs: 500         // how often /track/state is read while the app is running
+    property int ytmIdlePollMs: 2000    // how often to retry while the app is closed
 
     // ── Polling intervals (ms) ──
     property int desktopPollMs: 200     // current desktop (Left.qml highlight)
     property int windowsPollMs: 500     // window list, only while WindowMenu is open
-    property int slowPollMs: 1000       // app volumes, power profile, music
+    property int slowPollMs: 1000       // app volumes, power profile
     property int fallbackPollMs: 2000   // battery + volume safety net (volume is normally event driven)
     property int volumeDebounceMs: 30   // groups bursts of pactl events into one read
 
@@ -84,10 +89,16 @@ ShellRoot {
     property bool ytmPlaying: false
     property string ytmTitle: ""
     property string ytmArtist: ""
-    property string ytmArt: ""
-    property int ytmProgress: 0
+    property int ytmProgress: 0                 // 0..100
     property real ytmProgressSeconds: 0
-    property real ytmDuration: 0
+    property real ytmDuration: 0                // seconds
+    property string ytmVideoId: ""
+    property bool ytmLiked: false
+    property bool ytmDisliked: false
+    property bool ytmLoop: false                // repeat is on
+    // Cover art served by the app itself (cached on disk); ?id= busts the image cache on track change
+    property string ytmArt: ytmVideoId === "" ? "" :
+        ytmApiUrl + "/track/thumbnail?id=" + ytmVideoId + (ytmApiToken ? "&token=" + ytmApiToken : "")
     property int clipboardIndex: 0
     property bool clipboardRunning: false
 
@@ -209,29 +220,73 @@ ShellRoot {
         }
     }
 
-    // Music for YtmPill / YtmPanel. The JSON file is written by scripts/ytmd-nowplaying.py (start it by hand)
-    Process {
-        id: ytmProcess
-        command: ["cat", ytmCacheFile]
-        stdout: SplitParser {
-            onRead: data => {
-                try {
-                    var d = JSON.parse(data)
-                    ytmAvailable = d.available === true && !!d.title
-                    ytmPlaying = d.playing === true
-                    ytmTitle = d.title || ""
-                    ytmArtist = d.artist || ""
-                    ytmArt = d.art || ""
-                    var dur = parseFloat(d.durationSeconds) || 0
-                    var prog = parseFloat(d.progressSeconds) || 0
-                    ytmDuration = dur
-                    ytmProgressSeconds = prog
-                    ytmProgress = dur > 0 ? Math.round(prog / dur * 100) : 0
-                } catch(e) {
-                    ytmAvailable = false
-                }
+    // ── Music: YouTube Music Desktop 2 HTTP API (root.ytmApiUrl) ──
+    // GET  /track/state  -> {id, playing, progress, duration (s), percentage, liked, disliked, loop}
+    // GET  /track        -> {video: {videoId, title, author, lengthSeconds}, ...}
+    // POST /track/<cmd>  -> toggle-play-state, next, prev, seek {time: ms}, like true|false,
+    //                       dislike true|false, shuffle, repeat, volume {volume}
+    property bool ytmBusy: false        // a state request is in flight
+    property string ytmStateId: ""      // track id from the last /track/state, to spot track changes
+
+    function ytmRequest(method, path, body, onDone) {
+        var xhr = new XMLHttpRequest()
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== XMLHttpRequest.DONE) return
+            var data = null
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try { data = JSON.parse(xhr.responseText) } catch (e) {}
             }
+            if (onDone) onDone(xhr.status, data)
         }
+        xhr.open(method, ytmApiUrl + path)
+        xhr.setRequestHeader("Content-Type", "application/json")
+        if (ytmApiToken) xhr.setRequestHeader("Authorization", "Bearer " + ytmApiToken)
+        xhr.send(body === undefined ? "" : JSON.stringify(body))
+    }
+
+    // Send a player command, e.g. ytmCommand("next") or ytmCommand("seek", {time: 42000})
+    function ytmCommand(cmd, body) {
+        ytmRequest("POST", "/track/" + cmd, body, function() { ytmPoll() })
+    }
+
+    function ytmPoll() {
+        if (ytmBusy) return
+        ytmBusy = true
+        ytmRequest("GET", "/track/state", undefined, function(status, s) {
+            ytmBusy = false
+            if (status !== 200 || !s) {         // app closed, API off, or nothing loaded
+                ytmAvailable = false
+                return
+            }
+            ytmPlaying = s.playing === true
+            ytmLiked = s.liked === true
+            ytmDisliked = s.disliked === true
+            ytmLoop = s.loop === true
+            ytmProgressSeconds = Number(s.progress) || 0
+            if (Number(s.duration) > 0) ytmDuration = Number(s.duration)
+            ytmProgress = Math.round(Math.max(0, Math.min(100, Number(s.percentage) || 0)))
+
+            // New track (or first read): fetch title / artist
+            if (s.id !== ytmStateId || ytmTitle === "") {
+                ytmStateId = s.id || ""
+                ytmRequest("GET", "/track", undefined, function(tStatus, t) {
+                    var v = t && t.video ? t.video : null
+                    ytmTitle = v && v.title ? v.title : ""
+                    ytmArtist = v && v.author ? v.author : ""
+                    ytmVideoId = v && v.videoId ? v.videoId : ytmStateId
+                    if (v && !(ytmDuration > 0)) ytmDuration = Number(v.lengthSeconds) || 0
+                    ytmAvailable = ytmTitle !== ""
+                })
+            } else {
+                ytmAvailable = ytmTitle !== ""
+            }
+        })
+    }
+
+    Timer {
+        interval: ytmAvailable ? ytmPollMs : ytmIdlePollMs
+        running: true; repeat: true; triggeredOnStart: true
+        onTriggered: ytmPoll()
     }
 
     // Active power profile for PowerProfileMenu ("performance" / "balanced" / "power-saver")
@@ -296,7 +351,7 @@ ShellRoot {
         }
     }
 
-    // App volumes, window list, power profile, music
+    // App volumes, window list, power profile
     Timer {
         interval: slowPollMs; running: true; repeat: true
         onTriggered: {
@@ -308,7 +363,6 @@ ShellRoot {
                 windowsProcess.running = true
 
             powerProfileProcess.running = true
-            if (!ytmProcess.running) ytmProcess.running = true
         }
     }
 
@@ -322,7 +376,6 @@ ShellRoot {
         appVolumesProcess.running = true
         windowsProcess.running = true
         powerProfileProcess.running = true
-        ytmProcess.running = true
         // clipboardProcess is not started yet: the clipboard popup is unfinished (see .claude/TODO.md)
     }
 

@@ -10,23 +10,19 @@ When something is fixed, delete its row (git history keeps the record). When you
 
 | Score | Effort | Area | Item | Where |
 |------:|:------:|------|------|-------|
-| 6 | S | Music | Pill freezes on the last track when `ytmd-nowplaying.py` dies, because the cache file keeps its last contents. Add a timestamp to the JSON and treat it as unavailable when older than ~3s | `scripts/ytmd-nowplaying.py`, `shell.qml` ytmProcess |
-| 6 | S | Music | Pill can flicker: the script truncates and rewrites the file in place, so `cat` can read half a file, `JSON.parse` fails and the pill hides for a tick. Write to a temp file and `os.replace` | `scripts/ytmd-nowplaying.py:222` |
-| 5 | M | Music | `ytmPillLeftX` is one global value written by every screen's Bar, so YtmPanel is misplaced on multi-monitor setups with different widths. Store it per screen or compute it inside YtmPanel | `Bar.qml:53`, `YtmPanel.qml:32` |
+| 5 | M | Music | `ytmPillLeftX` is one global value written by every screen's Bar, so YtmPanel is misplaced on multi-monitor setups with different widths. Store it per screen or compute it inside YtmPanel | `Bar.qml:53`, `YtmPanel.qml:69` |
 | 4 | S | Clipboard | `clipboardProcess` is never started (on purpose until the popup works). Its `onRead` handler uses `root.`, `listView` and `selectEntry()`, none of which exist; `JSON.parse` is not wrapped in `try` | `shell.qml:251-264` |
 
 ## Unfinished features
 
 | Score | Effort | Area | Item |
 |------:|:------:|------|------|
-| 7 | M | Music | YtmPanel polish ("junky"): replace the negative top margin trick, add a close animation, close on mouse exit like the other popups, shrink the always-290px transparent click-catching area, use one color scheme (red card vs Catppuccin progress bar) |
 | 7 | L | Clipboard | Finish the clipboard popup: open/close via an `activeClipboardScreen` flag + a trigger (pill click or shortcut), feed real history (Klipper over `qdbus6 org.kde.klipper /klipper` or `wl-paste`), copy the chosen entry on Enter |
 | 6 | M | Clipboard | Drop the evdev keyboard reader (`clipboard.py`): it needs the `input` group, sees every key typed system-wide and never clamps `index`. The window already takes `WlrKeyboardFocus.Exclusive`, so use QML `Keys.onUpPressed` / `onDownPressed` / `onReturnPressed` |
-| 6 | M | Music | Playback controls (play/pause, next, previous, seek by clicking the progress bar). The script can call `playerApi` through the same CDP connection; needs a small command channel (e.g. a FIFO or a second one-shot script) |
-| 5 | S | Music | Start the feed automatically: launch `ytmd-nowplaying.py` from `shell.qml` as a long-running `Process` (or a systemd user unit) instead of by hand |
-| 4 | S | Music | Show the playing/paused state (`ytmPlaying` is parsed but unused), e.g. dim the pill or show a pause icon |
-| 3 | M | Music | Show the upcoming queue in YtmPanel (`queue[]` is already in the JSON) |
-| 2 | S | Music | Scroll on YtmPill to change the YouTube Music app volume, matching VolumePill |
+| 3 | M | Music | Show the upcoming queue in YtmPanel (`GET /nav/queue` on the API) |
+| 2 | S | Music | Scroll on YtmPill to change the YouTube Music app volume (`POST /track/volume-up` / `volume-down`), matching VolumePill |
+| 3 | S | Music | YtmPanel has an open animation but no close animation |
+| 2 | S | Music | Progress only moves every 500ms (one poll); could interpolate locally between polls while playing |
 
 ## Cleanups
 

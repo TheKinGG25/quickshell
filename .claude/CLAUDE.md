@@ -18,7 +18,8 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | A theme color used in several places (popup background, text, accent) | `shell.qml` → "Theme" |
 | Font, bar height, pill height / radius, number of desktops, music pill width | `shell.qml` → "Fonts" / "Layout" |
 | How often something refreshes | `shell.qml` → "Polling intervals" |
-| Where scripts or the music cache file live | `shell.qml` → "Paths" |
+| Where scripts live | `shell.qml` → "Paths" |
+| Music API address / token / poll rate | `shell.qml` → "Music" |
 | Clock format, ring colors | `Center.qml` → Tweakables |
 | Desktop number colors / spacing | `Left.qml` → Tweakables |
 | Pill order | `Right.qml` |
@@ -31,7 +32,7 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | A popup's size, radius, offsets | that popup's Tweakables |
 | App icon / name in WindowMenu | `scripts/icons.json` (or F2 in WindowMenu) |
 | Headphone MAC | `scripts/bt-config.sh` |
-| Music feed port / output file / rate | top of `scripts/ytmd-nowplaying.py` |
+| Music player layout, colors, icons, side buttons | `YtmPanel.qml` → Tweakables (`sideButtons` list) |
 
 Conventions when adding code:
 
@@ -56,12 +57,7 @@ All script paths come from `root.scriptsDir` (`$HOME/.config/quickshell/scripts`
 
 There are no build steps - QML is interpreted at runtime. Changes take effect on the next `quickshell` launch.
 
-The music player feed is **not** started by the shell. Run it separately (see "Music player" below):
-
-```bash
-ytmdesktop --remote-debugging-port=9222 --remote-allow-origins=*
-python3 ~/.config/quickshell/scripts/ytmd-nowplaying.py
-```
+The music player needs YouTube Music Desktop 2 running with its API enabled (port 13091). Nothing else to start.
 
 ## Architecture overview
 
@@ -73,7 +69,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 
 - Constants: `fontFamily`, `fontSize`, `barHeight`
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
-- Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`
+- Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`; command function `ytmCommand(cmd, body)`
 - Clipboard: `clipboardIndex`, `clipboardRunning` (fed by `clipboard.py`, work in progress)
 - Layout helpers: `ytmPillLeftX` (x of the Right section, used to place YtmPanel under the pill)
 - Popup visibility: `activeVolumeScreen`, `activePowerScreen`, `activePowerProfileScreen`, `activeWindowScreen`, `activeYtmScreen` (null = hidden, screen ref = show on that screen)
@@ -88,7 +84,8 @@ Polling cadence (all in `shell.qml`):
 | 2 s | fallback volume + sink read, battery (first `/sys/class/power_supply/BAT*`), restart `pactl subscribe` if it died |
 | 200 ms | `kwin-desktop.py` (current desktop) |
 | 500 ms | `kwin-windows.py` while WindowMenu is open |
-| 1 s | `app-volumes.py` (skipped while VolumeSlider is open), `powerprofilesctl get`, `cat ~/.cache/ytmd-now.json` |
+| 1 s | `app-volumes.py` (skipped while VolumeSlider is open), `powerprofilesctl get` |
+| 500 ms (2 s idle) | music API `GET /track/state` (+ `GET /track` on track change) |
 
 ### Component instantiation
 
@@ -107,7 +104,7 @@ Variants {
 
 ### Popup panel visibility pattern
 
-Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.activeXScreen === screen`. Click handlers toggle the relevant `root.activeXScreen` between the current screen and null. Most panels close on `MouseArea.onExited`; YtmPanel is the exception and closes on click.
+Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.activeXScreen === screen`. Click handlers toggle the relevant `root.activeXScreen` between the current screen and null. Panels close on `MouseArea.onExited`.
 
 ### Bar layout
 
@@ -129,8 +126,9 @@ Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.a
 
 | File | What it is | Used by |
 |------|------------|---------|
-| `SliderTrack.qml` | "filled \| gap \| handle \| gap \| empty" bar for a `position` 0..1 | VolumeBarSlider, YtmPanel progress |
-| `VolumeBarSlider.qml` | 0..100 slider: SliderTrack background, thin handle, scroll wheel (`onMoved` on drag and scroll) | VolumeSlider (master + apps) |
+| `SliderTrack.qml` | "filled \| gap \| handle \| gap \| empty" bar for a `position` 0..1 | VolumeBarSlider |
+| `VolumeBarSlider.qml` | slider (default 0..100): SliderTrack background, thin handle, scroll wheel (`onMoved` on drag and scroll) | VolumeSlider (master + apps), YtmPanel seek bar |
+| `IconButton.qml` | square button with one Nerd Font icon, hover and active colors | YtmPanel controls + side column |
 | `ValuePill.qml` | colored pill, value text left, icon right | VolumePill, BatteryPill |
 | `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
 | `DialogButton.qml` | flat button with hover color | EditDialogWindow |
@@ -143,7 +141,7 @@ Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.a
 | `PowerMenu.qml` | Clock middle click | Lock / suspend / reboot / poweroff |
 | `PowerProfileMenu.qml` | BatteryPill middle click | performance / balanced / power-saver |
 | `WindowMenu.qml` | Clock left click | Open windows grouped by desktop; click focuses, F2 opens `EditDialogWindow.qml` |
-| `YtmPanel.qml` | YtmPill left click | Album art, title, artist, elapsed / total time, progress bar |
+| `YtmPanel.qml` | YtmPill left click | Music player: cover, title, artist, seek bar + times, prev / play-pause / next, side column (like, dislike, shuffle, repeat, close) |
 | `Clipboard.qml` | nothing yet (`clipboardOpen` is never set) | WIP clipboard picker: 3 placeholder rows, highlighted row follows `root.clipboardIndex` |
 
 ### Scripts (`scripts/`)
@@ -155,7 +153,6 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 | `kwin-desktop.py` | no args → print current desktop number; `<n>` → switch | KWin VirtualDesktopManager over DBus |
 | `kwin-windows.py` | no args → print JSON window list; `<win_id>` → focus | KWin WindowsRunner + `icons.json` enrichment |
 | `app-volumes.py` | prints JSON array of `{id, name, volume}` | per-app PulseAudio/PipeWire streams |
-| `ytmd-nowplaying.py` | long-running daemon, started manually | Reads YouTube Music state over Chrome DevTools Protocol, writes `~/.cache/ytmd-now.json` every second |
 | `save-icons-config.py` | `<app_id> <icon> <display_name>` | writes to `icons.json` |
 | `add-to-blacklist.py` | `<app_id>` | adds to `icons.json` blacklist |
 | `clipboard.py` | long-running, prints `{running, index}` per key press | Reads the keyboard via `evdev`: Up/Down move `index`, Enter prints `running: false` and exits |
@@ -164,11 +161,14 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 
 ### Music player (YtmPill / YtmPanel)
 
-Pipeline: `ytmdesktop` (Venipa ytmdesktop2, launched with `--remote-debugging-port=9222 --remote-allow-origins=*`) → `ytmd-nowplaying.py` evaluates JS in the `music.youtube.com` page via CDP websocket → writes one JSON line to `~/.cache/ytmd-now.json` → `shell.qml` `ytmProcess` runs `cat ~/.cache/ytmd-now.json` every second → `ytm*` properties.
+Source: the YouTube Music Desktop 2 (Venipa `ytmdesktop2`) HTTP API at `root.ytmApiUrl` (`http://127.0.0.1:13091`, enable it in the app's API settings). No helper script: `shell.qml` talks to it with `XMLHttpRequest`.
 
-JSON fields used by QML: `available`, `playing`, `title`, `artist`, `art`, `durationSeconds`, `progressSeconds`. The script also emits `state`, `videoId`, `thumbnails`, `queue[]`, `queueSource` which the UI does not use yet.
+- Every `ytmPollMs` (500 ms; `ytmIdlePollMs` 2 s while the app is closed): `GET /track/state` → `{id, playing, progress, duration (s), percentage, liked, disliked, loop}`. When `id` changes: `GET /track` → `video.title`, `video.author`, `video.videoId`.
+- Cover art: `root.ytmArt` = `GET /track/thumbnail?id=<videoId>` (served and cached by the app).
+- Commands: `root.ytmCommand(cmd, body)` → `POST /track/<cmd>`: `toggle-play-state`, `next`, `prev`, `seek` `{time: <ms>}`, `like` / `dislike` with `true|false`, `shuffle`, `repeat`. After each command the state is re-read.
+- If "require authorization" is on in the app, put the token in `root.ytmApiToken` (sent as `Authorization: Bearer`, and as `?token=` for the cover).
 
-YtmPill is hidden when `ytmAvailable` is false (no file, bad JSON, `available: false`, or empty title). The display is read-only: there are no playback controls.
+YtmPill is hidden when `ytmAvailable` is false (app closed, API off, or nothing loaded). YtmPanel layout: cover / title / artist / seek bar + times / prev, play-pause, next on the left; a side column of buttons (like, dislike, shuffle, repeat, close; list in its Tweakables) on the right. Drag or scroll the seek bar to seek.
 
 ### App icon/name configuration (`scripts/icons.json`)
 
@@ -195,7 +195,7 @@ The window list enrichment pipeline in `kwin-windows.py` looks up each window's 
 - `bluetoothctl` - headphone connect toggle
 - `powerprofilesctl` - power profile get/set
 - `systemctl` / `loginctl` - power menu actions
-- `ytmdesktop` + `python-websocket-client` + `python-requests` - music player feed
+- YouTube Music Desktop 2 (`ytmdesktop2`) with its API enabled - music player
 - `python-evdev` - keyboard input for `clipboard.py` (needs read access to `/dev/input/event*`)
 - `JetBrainsMono Nerd Font` - required for all icons (Nerd Font codepoints used throughout)
 

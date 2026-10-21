@@ -70,7 +70,6 @@ Shared building blocks, imported with `import "components"`.
 | `kwin-desktop.py` | `shell.qml` (200ms), `Left.qml` | none → `3`; `<n>` → switches desktop |
 | `kwin-windows.py` | `shell.qml` (500ms while WindowMenu open), `WindowMenu.qml` | none → JSON window list enriched from `icons.json`; `<id>` → focus window |
 | `app-volumes.py` | `shell.qml` (1s) | → `[{id, name, volume}]` parsed from `pactl list sink-inputs` |
-| `ytmd-nowplaying.py` | **you**, manually | CDP websocket to ytmdesktop on port 9222 → `~/.cache/ytmd-now.json` every 1s |
 | `save-icons-config.py` | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
 | `EditDialogWindow.qml` | `<app_id> <icon> <name>` → updates `icons.json` |
 | `add-to-blacklist.py` | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
@@ -91,7 +90,7 @@ Shared building blocks, imported with `import "components"`.
 | 500ms | `kwin-windows.py` (only while WindowMenu open) | `windows` |
 | 1s | `app-volumes.py` (only while VolumeSlider closed) | `appVolumes` |
 | 1s | `powerprofilesctl get` | `powerProfile` |
-| 1s | `cat ~/.cache/ytmd-now.json` | `ytm*` |
+| 500ms (2s idle) | `GET /track/state` (+ `GET /track` on change) on the music API | `ytm*` |
 
 Paths: every script path is built from `root.scriptsDir` (`Quickshell.env("HOME") + "/.config/quickshell/scripts"`), and the music cache from `root.homeDir`. The 2s timer also restarts `pactl subscribe` if it exits.
 
@@ -100,21 +99,18 @@ Array properties are only reassigned when `JSON.stringify` differs, to avoid nee
 ## 4. Music player pipeline
 
 ```
-ytmdesktop (Electron, --remote-debugging-port=9222 --remote-allow-origins=*)
-   │  Chrome DevTools Protocol: Runtime.evaluate(PAGE_EXPR) once per second
+YouTube Music Desktop 2 (ytmdesktop2), API on http://127.0.0.1:13091
+   ▲  POST /track/<cmd>  (toggle-play-state, next, prev, seek, like, dislike, shuffle, repeat)
+   │        ▲ root.ytmCommand(cmd, body)  ◄── YtmPanel buttons / seek bar
+   │
+   ▼  GET /track/state every 500ms (2s while unreachable), GET /track when the track id changes
+shell.qml ytmPoll()  (XMLHttpRequest, no helper script)
    ▼
-scripts/ytmd-nowplaying.py   (separate long-running process, NOT started by quickshell)
-   │  reads ytmusic-app.playerApi (title, author, state, time, thumbnails)
-   │  + Redux store queue (DOM scrape fallback)
-   ▼
-~/.cache/ytmd-now.json       { available, playing, state, title, artist, videoId,
-   │                           durationSeconds, progressSeconds, art, thumbnails,
-   │                           queueSource, queue[] }
-   ▼  cat ~/.cache/ytmd-now.json, every 1s (shell.qml ytmProcess)
-ShellRoot.ytm*  ──►  YtmPill (bar)  ──click──►  YtmPanel (drop-down)
+ShellRoot.ytm*  ──►  YtmPill (bar)  ──click──►  YtmPanel (player card)
+                      cover: GET /track/thumbnail?id=<videoId>
 ```
 
-`ytmAvailable` is true only when `available === true` and `title` is non-empty; any parse error sets it to false.
+`ytmAvailable` is false when the API does not answer, `/track/state` is null, or the track has no title.
 
 ## 5. Known issues and TODO
 

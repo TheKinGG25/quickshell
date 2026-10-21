@@ -1,7 +1,7 @@
-// YtmPanel.qml - big "now playing" card that drops down from YtmPill.
-// Cover art, title, artist, elapsed / total time and a progress bar. Click anywhere on it to close.
-// Opens at root.ytmPillLeftX (set by Bar.qml), same width as the pill (root.ytmWidth).
-// Rough edges are listed in .claude/TODO.md.
+// YtmPanel.qml - music player card that drops down under YtmPill (left click on the pill toggles it).
+// Layout: [ cover art / title / artist / seek bar + times / prev play next ] [ side button column ]
+// Data and commands: root.ytm* and root.ytmCommand() in shell.qml (YouTube Music Desktop 2 API).
+// Closes when the mouse leaves the card. Side buttons are a list in Tweakables (`sideButtons`).
 
 import Quickshell
 import Quickshell.Wayland
@@ -14,25 +14,61 @@ PanelWindow {
     property var root
 
     // ── Tweakables ──
-    readonly property int expandedHeight: 290   // full card height
-    property int artHeight: 180                 // cover art height
+    property int cardWidth: 340
+    property int cardHeight: 448
+    property int cardPadding: 20
+    property int cardRadius: 16
+    property int columnGap: 20                  // between the player column and the side column
+    property int sideWidth: 56                  // side button column
+    property int sidePadding: 6
+    property int topGap: 4                      // space between the bar and the card
     property int openAnimMs: 300                // drop-down animation length
+    property int seekWheelStep: 5               // seconds per scroll notch on the seek bar
+
     property color cardColor: "#ff4444"
+    property color sideColor: "#22000000"       // side column background
     property color artPlaceholder: "#cc2222"    // behind the cover while it loads
     property color titleColor: "black"
     property color artistColor: "#1a0000"
-    property int titleFontSize: 13
-    property int artistFontSize: 11
-    property int timeFontSize: 10
-    property color progressFill: root.colBlue
-    property color progressTrack: root.colSurface
+    property color buttonColor: "#33000000"
+    property color buttonHover: "#55000000"
+    property color iconColor: "black"
+    property color activeIconColor: "white"     // liked / disliked / repeat on
+    property color playColor: "#1a0000"         // the big play / pause button
+    property color playHover: "#000000"
+    property color playIconColor: "#ff4444"
+    property color seekFill: "#1a0000"
+    property color seekEmpty: "#40000000"
+    property int titleFontSize: 17
+    property int artistFontSize: 13
+    property int timeFontSize: 12
+
+    // Nerd Font code points (https://www.nerdfonts.com/cheat-sheet)
+    property string prevIcon: "\u{f04ae}"
+    property string nextIcon: "\u{f04ad}"
+    property string playIcon: "\u{f040a}"
+    property string pauseIcon: "\u{f03e4}"
+    property string noArtIcon: "\u{f075a}"
+
+    // Side column, top to bottom. action: what the click does (see sideAction below).
+    // activeIcon is shown while the state is on (liked, disliked, repeat).
+    property var sideButtons: [
+        { action: "like",    label: "Like",    icon: "\u{f0514}", activeIcon: "\u{f0513}" },
+        { action: "dislike", label: "Dislike", icon: "\u{f0512}", activeIcon: "\u{f0511}" },
+        { action: "shuffle", label: "Shuffle", icon: "\u{f049d}", activeIcon: "" },
+        { action: "repeat",  label: "Repeat",  icon: "\u{f0457}", activeIcon: "\u{f0456}" },
+        { action: "close",   label: "Close",   icon: "\u{f0156}", activeIcon: "" }
+    ]
+
+    // Width left for the cover art / player column
+    readonly property int artSize: cardWidth - 2 * cardPadding - columnGap - sideWidth
 
     anchors { top: true; left: true }
-    margins.top: -root.barHeight + 4        // pulls the card up so it overlaps the pill
-    margins.left: root.ytmPillLeftX
-    implicitWidth: root.ytmWidth
-    // Always the full height when visible so clipping works; 0 would prevent layout
-    implicitHeight: expandedHeight
+    margins.top: topGap
+    // Open under the pill, but never past the right screen edge
+    margins.left: Math.max(0, Math.min(root.ytmPillLeftX, screen.width - cardWidth - 8))
+    implicitWidth: cardWidth
+    implicitHeight: cardHeight
     color: "transparent"
     visible: root.activeYtmScreen === screen
 
@@ -42,123 +78,24 @@ PanelWindow {
     // Replay the drop-down animation every time it opens
     onVisibleChanged: {
         if (visible) {
-            inner.height = 0
+            card.height = 0
             expandAnim.running = true
         }
     }
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: root.activeYtmScreen = null
+    function isActive(action) {
+        if (action === "like") return root.ytmLiked
+        if (action === "dislike") return root.ytmDisliked
+        if (action === "repeat") return root.ytmLoop
+        return false
     }
 
-    // Visible card (its height animates from 0 to expandedHeight)
-    Rectangle {
-        id: inner
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        clip: true
-        height: 0
-        color: ytmPanel.cardColor
-        radius: root.pillRadius
-
-        NumberAnimation {
-            id: expandAnim
-            target: inner
-            property: "height"
-            from: 0
-            to: ytmPanel.expandedHeight
-            duration: ytmPanel.openAnimMs
-            easing.type: Easing.OutCubic
-        }
-
-        ColumnLayout {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.margins: 8
-            spacing: 8
-
-            // Album art
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: ytmPanel.artHeight
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 6
-                    clip: true
-                    color: ytmPanel.artPlaceholder
-
-                    Image {
-                        anchors.fill: parent
-                        source: root.ytmArt
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
-                    }
-                }
-            }
-
-            // Song title
-            Text {
-                Layout.fillWidth: true
-                text: root.ytmTitle
-                color: ytmPanel.titleColor
-                font.pixelSize: ytmPanel.titleFontSize
-                font.family: root.fontFamily
-                font.bold: true
-                elide: Text.ElideRight
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            // Artist
-            Text {
-                Layout.fillWidth: true
-                text: root.ytmArtist
-                color: ytmPanel.artistColor
-                font.pixelSize: ytmPanel.artistFontSize
-                font.family: root.fontFamily
-                elide: Text.ElideRight
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            // Time labels + progress bar
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 4
-
-                // elapsed (left) ... total (right)
-                RowLayout {
-                    Layout.fillWidth: true
-                    Text {
-                        text: ytmPanel.formatTime(root.ytmProgressSeconds)
-                        color: ytmPanel.artistColor
-                        font.pixelSize: ytmPanel.timeFontSize
-                        font.family: root.fontFamily
-                    }
-                    Item { Layout.fillWidth: true }
-                    Text {
-                        text: ytmPanel.formatTime(root.ytmDuration)
-                        color: ytmPanel.artistColor
-                        font.pixelSize: ytmPanel.timeFontSize
-                        font.family: root.fontFamily
-                    }
-                }
-
-                // Progress bar, same look as the volume sliders (components/SliderTrack.qml)
-                SliderTrack {
-                    Layout.fillWidth: true
-                    height: 12
-                    position: root.ytmDuration > 0
-                        ? Math.max(0, Math.min(1, root.ytmProgressSeconds / root.ytmDuration))
-                        : 0
-                    fillColor: ytmPanel.progressFill
-                    emptyColor: ytmPanel.progressTrack
-                    showHandle: true
-                }
-            }
-        }
+    function sideAction(action) {
+        if (action === "like") { root.ytmLiked = !root.ytmLiked; root.ytmCommand("like", root.ytmLiked) }
+        else if (action === "dislike") { root.ytmDisliked = !root.ytmDisliked; root.ytmCommand("dislike", root.ytmDisliked) }
+        else if (action === "shuffle") root.ytmCommand("shuffle")
+        else if (action === "repeat") root.ytmCommand("repeat")
+        else if (action === "close") root.activeYtmScreen = null
     }
 
     // Seconds -> "m:ss"
@@ -168,5 +105,231 @@ PanelWindow {
         var m = Math.floor(s / 60)
         var rem = s % 60
         return m + ":" + (rem < 10 ? "0" : "") + rem
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        onExited: root.activeYtmScreen = null
+
+        // Visible card (its height animates from 0 to cardHeight)
+        Rectangle {
+            id: card
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 0
+            clip: true
+            radius: ytmPanel.cardRadius
+            color: ytmPanel.cardColor
+
+            NumberAnimation {
+                id: expandAnim
+                target: card
+                property: "height"
+                from: 0
+                to: ytmPanel.cardHeight
+                duration: ytmPanel.openAnimMs
+                easing.type: Easing.OutCubic
+            }
+
+            RowLayout {
+                // Fixed height so the content does not squash while the card animates open
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: ytmPanel.cardPadding
+                height: ytmPanel.cardHeight - 2 * ytmPanel.cardPadding
+                spacing: ytmPanel.columnGap
+
+                // ── Player column ──
+                ColumnLayout {
+                    Layout.preferredWidth: ytmPanel.artSize
+                    Layout.fillHeight: true
+                    spacing: 0
+
+                    // Cover art
+                    Rectangle {
+                        Layout.preferredWidth: ytmPanel.artSize
+                        Layout.preferredHeight: ytmPanel.artSize
+                        radius: 10
+                        clip: true
+                        color: ytmPanel.artPlaceholder
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: cover.status !== Image.Ready
+                            text: ytmPanel.noArtIcon
+                            color: ytmPanel.titleColor
+                            font.family: root.fontFamily
+                            font.pixelSize: 56
+                        }
+                        Image {
+                            id: cover
+                            anchors.fill: parent
+                            source: root.ytmArt
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+
+                    // Title + artist
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.ytmTitle
+                            color: ytmPanel.titleColor
+                            font.pixelSize: ytmPanel.titleFontSize
+                            font.family: root.fontFamily
+                            font.bold: true
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.ytmArtist
+                            color: ytmPanel.artistColor
+                            font.pixelSize: ytmPanel.artistFontSize
+                            font.family: root.fontFamily
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+
+                    // Seek bar + elapsed / total
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        VolumeBarSlider {
+                            id: seekSlider
+                            Layout.fillWidth: true
+                            implicitHeight: 12
+                            trackHeight: 6
+                            from: 0
+                            to: Math.max(1, root.ytmDuration)
+                            wheelStep: ytmPanel.seekWheelStep
+                            fillColor: ytmPanel.seekFill
+                            emptyColor: ytmPanel.seekEmpty
+
+                            // Follows playback except while dragging
+                            Binding {
+                                target: seekSlider
+                                property: "value"
+                                value: root.ytmProgressSeconds
+                                when: !seekSlider.pressed
+                            }
+
+                            function seekHere() {
+                                root.ytmProgressSeconds = value
+                                root.ytmCommand("seek", { time: Math.round(value * 1000), type: "seek" })
+                            }
+                            onPressedChanged: if (!pressed) seekHere()     // drag released
+                            onMoved: if (!pressed) seekHere()              // scroll wheel
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text {
+                                text: ytmPanel.formatTime(seekSlider.value)
+                                color: ytmPanel.artistColor
+                                font.pixelSize: ytmPanel.timeFontSize
+                                font.family: root.fontFamily
+                            }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                                text: ytmPanel.formatTime(root.ytmDuration)
+                                color: ytmPanel.artistColor
+                                font.pixelSize: ytmPanel.timeFontSize
+                                font.family: root.fontFamily
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+
+                    // Previous | play/pause | next
+                    RowLayout {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 24
+
+                        IconButton {
+                            text: "Previous"
+                            icon: ytmPanel.prevIcon
+                            fontFamily: root.fontFamily
+                            baseColor: ytmPanel.buttonColor
+                            hoverColor: ytmPanel.buttonHover
+                            iconColor: ytmPanel.iconColor
+                            onClicked: root.ytmCommand("prev")
+                        }
+                        IconButton {
+                            text: root.ytmPlaying ? "Pause" : "Play"
+                            icon: root.ytmPlaying ? ytmPanel.pauseIcon : ytmPanel.playIcon
+                            size: 52
+                            iconSize: 24
+                            cornerRadius: 12
+                            fontFamily: root.fontFamily
+                            baseColor: ytmPanel.playColor
+                            hoverColor: ytmPanel.playHover
+                            iconColor: ytmPanel.playIconColor
+                            onClicked: {
+                                root.ytmPlaying = !root.ytmPlaying     // flip right away, the poll confirms it
+                                root.ytmCommand("toggle-play-state")
+                            }
+                        }
+                        IconButton {
+                            text: "Next"
+                            icon: ytmPanel.nextIcon
+                            fontFamily: root.fontFamily
+                            baseColor: ytmPanel.buttonColor
+                            hoverColor: ytmPanel.buttonHover
+                            iconColor: ytmPanel.iconColor
+                            onClicked: root.ytmCommand("next")
+                        }
+                    }
+                }
+
+                // ── Side column ──
+                Rectangle {
+                    Layout.preferredWidth: ytmPanel.sideWidth
+                    Layout.fillHeight: true
+                    radius: 12
+                    color: ytmPanel.sideColor
+
+                    // Buttons spread evenly from top to bottom
+                    Column {
+                        id: sideCol
+                        anchors.fill: parent
+                        anchors.margins: ytmPanel.sidePadding
+                        spacing: ytmPanel.sideButtons.length > 1
+                            ? (height - ytmPanel.sideButtons.length * (ytmPanel.sideWidth - 2 * ytmPanel.sidePadding)) / (ytmPanel.sideButtons.length - 1)
+                            : 0
+
+                        Repeater {
+                            model: ytmPanel.sideButtons
+                            delegate: IconButton {
+                                text: modelData.label
+                                icon: modelData.icon
+                                activeIcon: modelData.activeIcon
+                                active: ytmPanel.isActive(modelData.action)
+                                size: ytmPanel.sideWidth - 2 * ytmPanel.sidePadding
+                                fontFamily: root.fontFamily
+                                baseColor: ytmPanel.buttonColor
+                                hoverColor: ytmPanel.buttonHover
+                                iconColor: ytmPanel.iconColor
+                                activeColor: ytmPanel.activeIconColor
+                                onClicked: ytmPanel.sideAction(modelData.action)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
