@@ -32,6 +32,8 @@ Every file starts with a comment saying what it is, how it is opened and where i
 
 Conventions when adding code:
 
+- On a `PanelWindow` set `implicitWidth` / `implicitHeight`, not `width` / `height` (Quickshell warns that those are deprecated).
+
 - A value used in more than one file goes in `shell.qml` and is read as `root.<name>`.
 - A value used in one file goes in that file's Tweakables block, referenced as `<fileRootId>.<name>` (qualified, so a child's own `color` / `width` cannot shadow it).
 - Nerd Font icons in lists are written as code point escapes (`"\uf011"`, `"\u{f04b2}"`) so they survive copy-paste.
@@ -69,7 +71,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`
 - Clipboard: `clipboardIndex`, `clipboardRunning` (fed by `clipboard.py`, work in progress)
-- Layout helpers: `ytmPillLeftX` (x of the Right section, used to place YtmPanel under the pill), `rightLength` (currently unused)
+- Layout helpers: `ytmPillLeftX` (x of the Right section, used to place YtmPanel under the pill)
 - Popup visibility: `activeVolumeScreen`, `activePowerScreen`, `activePowerProfileScreen`, `activeWindowScreen`, `activeYtmScreen` (null = hidden, screen ref = show on that screen)
 
 State is polled by timer-driven `Process` objects in `shell.qml` that run commands / Python scripts and read stdout via `SplitParser`. Every QML component receives `root: shellRoot` and reads state from it directly. Components never own shared state.

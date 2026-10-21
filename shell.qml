@@ -69,7 +69,6 @@ ShellRoot {
 
     // ── Layout helpers written by Bar.qml ──
     property int ytmPillLeftX: 0        // x of the Right section, YtmPanel opens there
-    property int rightLength: 0         // unused (see .claude/TODO.md)
 
     // ── Shared state (filled by the processes below, defaults shown until first read) ──
     property int currentDesktop: 1
@@ -94,11 +93,11 @@ ShellRoot {
 
     // ── Processes ──
 
-    // Window list refresh while WindowMenu is open. Known bug: `root` is undefined here (see .claude/TODO.md)
+    // Window list refresh while WindowMenu is open
     Timer {
         id: windowsUpdateTimer
         interval: windowsPollMs
-        running: root.activeWindowScreen !== null
+        running: shellRoot.activeWindowScreen !== null
         repeat: true
         onTriggered: {
             windowsProcess.running = true
@@ -324,7 +323,7 @@ ShellRoot {
         windowsProcess.running = true
         powerProfileProcess.running = true
         ytmProcess.running = true
-        clipboardProcess = false    // Known bug (see .claude/TODO.md); keep this line last
+        // clipboardProcess is not started yet: the clipboard popup is unfinished (see .claude/TODO.md)
     }
 
     // ── Windows: one of each per monitor ── remove a block to disable that feature

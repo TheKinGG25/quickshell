@@ -16,7 +16,7 @@ PanelWindow {
     property int rightTopMargin: 4          // nudges the pills down inside the bar
 
     anchors { top: true; left: true; right: true }
-    height: root.barHeight
+    implicitHeight: root.barHeight
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Top
 
@@ -51,7 +51,6 @@ PanelWindow {
             // Tells YtmPanel where the pill row starts so it can open right under YtmPill
             onXChanged: {
                 barWindow.root.ytmPillLeftX = x
-                barWindow.root.rightLength = barWindow.root.screen.width - x    // Known bug (see .claude/TODO.md)
             }
             Component.onCompleted: Qt.callLater(() => { barWindow.root.ytmPillLeftX = x })
         }

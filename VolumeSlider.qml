@@ -27,8 +27,8 @@ PanelWindow {
     anchors { top: true; right: true }
     margins.top: 0
     margins.right: 0
-    width: cardWidth + 60                       // invisible margin around the card
-    height: contentColumn.implicitHeight + 80
+    implicitWidth: cardWidth + 60                       // invisible margin around the card
+    implicitHeight: contentColumn.implicitHeight + 80
     color: "transparent"
     visible: root.activeVolumeScreen === screen
 

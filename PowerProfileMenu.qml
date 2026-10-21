@@ -30,8 +30,8 @@ PanelWindow {
     anchors { top: true; right: true }
     margins.top: 0
     margins.right: 0
-    width: cardWidth + 20                       // invisible margin around the card
-    height: contentCol.implicitHeight + 80
+    implicitWidth: cardWidth + 20                       // invisible margin around the card
+    implicitHeight: contentCol.implicitHeight + 80
     color: "transparent"
     visible: root && root.activePowerProfileScreen === screen
 

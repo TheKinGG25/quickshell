@@ -24,8 +24,8 @@ PanelWindow {
     visible: clipboardOpen
     anchors { top: true; right: true }
     margins { top: topOffset; right: rightOffset }
-    width: widthWindow
-    height: contentCol.implicitHeight + 20
+    implicitWidth: widthWindow
+    implicitHeight: contentCol.implicitHeight + 20
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     WlrLayershell.namespace: "quickshell-clipboard"
     color: "transparent"
@@ -57,7 +57,7 @@ PanelWindow {
                     CopiedItem {
                         // label: "Copied Item " + (index + 1)
                         label: index === root.clipboardIndex ? "Focused Item " + (index + 1) : "Copied Item " + (index + 1)
-                        isFocused: index === focusedIndex || index === root.clipboardIndex     // focusedIndex is undefined (see TODO)
+                        isFocused: index === root.clipboardIndex
                     }
                 }
             }
@@ -77,7 +77,7 @@ PanelWindow {
             spacing: 10
             Text {
                 font.family: root.fontFamily
-                font.pixelSize: fontSize        // undefined here (see TODO)
+                font.pixelSize: root.fontSize
                 color: "white"
                 Layout.maximumWidth: widthWindow - 40
                 wrapMode: Text.WrapAnywhere

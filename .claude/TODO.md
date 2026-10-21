@@ -10,14 +10,10 @@ When something is fixed, delete its row (git history keeps the record). When you
 
 | Score | Effort | Area | Item | Where |
 |------:|:------:|------|------|-------|
-| 7 | S | Clipboard | `Component.onCompleted` runs `clipboardProcess = false`, which assigns to the id instead of setting `.running`. Throws on startup (harmless today only because it is the last line) | `shell.qml:327` |
 | 6 | S | Music | Pill freezes on the last track when `ytmd-nowplaying.py` dies, because the cache file keeps its last contents. Add a timestamp to the JSON and treat it as unavailable when older than ~3s | `scripts/ytmd-nowplaying.py`, `shell.qml` ytmProcess |
 | 6 | S | Music | Pill can flicker: the script truncates and rewrites the file in place, so `cat` can read half a file, `JSON.parse` fails and the pill hides for a tick. Write to a temp file and `os.replace` | `scripts/ytmd-nowplaying.py:222` |
-| 5 | S | Shell | `running: root.activeWindowScreen !== null`: there is no `root` id in `shell.qml` (it is `shellRoot`), so the binding errors. The 1s timer hides it | `shell.qml:101` |
-| 5 | S | Bar | `barWindow.root.screen.width` does not exist on `ShellRoot`, throws on every x change. `rightLength` is unused, so the line can just go | `Bar.qml:54` |
 | 5 | M | Music | `ytmPillLeftX` is one global value written by every screen's Bar, so YtmPanel is misplaced on multi-monitor setups with different widths. Store it per screen or compute it inside YtmPanel | `Bar.qml:53`, `YtmPanel.qml:31` |
-| 4 | S | Clipboard | `onRead` handler uses `root.`, `listView` and `selectEntry()`, none of which exist; `JSON.parse` is not wrapped in `try` | `shell.qml:252-265` |
-| 3 | S | Clipboard | `focusedIndex` and bare `fontSize` are undefined inside `Clipboard.qml` | `Clipboard.qml:60,80` |
+| 4 | S | Clipboard | `clipboardProcess` is never started (on purpose until the popup works). Its `onRead` handler uses `root.`, `listView` and `selectEntry()`, none of which exist; `JSON.parse` is not wrapped in `try` | `shell.qml:251-264` |
 
 ## Unfinished features
 

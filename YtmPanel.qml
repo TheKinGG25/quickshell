@@ -29,9 +29,9 @@ PanelWindow {
     anchors { top: true; left: true }
     margins.top: -root.barHeight + 4        // pulls the card up so it overlaps the pill
     margins.left: root.ytmPillLeftX
-    width: root.ytmWidth
+    implicitWidth: root.ytmWidth
     // Always the full height when visible so clipping works; 0 would prevent layout
-    height: expandedHeight
+    implicitHeight: expandedHeight
     color: "transparent"
     visible: root.activeYtmScreen === screen
 

@@ -179,7 +179,9 @@ PanelWindow {
                                     Layout.preferredWidth: windowMenu.iconSize
                                     Layout.preferredHeight: windowMenu.iconSize
                                     fillMode: Image.PreserveAspectFit
-                                    asynchronous: true
+                                    // Not asynchronous: theme icons (image://icon) loaded off the GUI thread
+                                    // trigger "Cannot create children for a parent that is in a different thread"
+                                    asynchronous: false
                                     onStatusChanged: {
                                         if (status === Image.Error) {
                                             // Try alternative icon names if first fails
