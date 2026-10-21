@@ -9,6 +9,33 @@ Docs live in `.claude/`:
 
 Keep every Markdown file for this project inside `.claude/`.
 
+## Where to change things
+
+Every file starts with a comment saying what it is, how it is opened and where its data comes from. Right after `property var root` most QML files have a `// ── Tweakables ──` block: sizes, colors, texts and timings for that file only. Shared values live in `shell.qml`.
+
+| I want to change... | Go to |
+|---------------------|-------|
+| A theme color used in several places (popup background, text, accent) | `shell.qml` → "Theme" |
+| Font, bar height, pill height / radius, number of desktops, music pill width | `shell.qml` → "Fonts" / "Layout" |
+| How often something refreshes | `shell.qml` → "Polling intervals" |
+| Where scripts or the music cache file live | `shell.qml` → "Paths" |
+| Clock format, ring colors | `Center.qml` → Tweakables |
+| Desktop number colors / spacing | `Left.qml` → Tweakables |
+| Pill order | `Right.qml` |
+| A pill's colors, icons, scroll step | `VolumePill.qml` / `BatteryPill.qml` / `YtmPill.qml` → Tweakables |
+| Power menu buttons (add, remove, command, icon) | `PowerMenu.qml` → `buttons` list |
+| Power profiles shown | `PowerProfileMenu.qml` → `profiles` list |
+| A popup's size, radius, offsets | that popup's Tweakables |
+| App icon / name in WindowMenu | `scripts/icons.json` (or F2 in WindowMenu) |
+| Headphone MAC | `scripts/bt-config.sh` |
+| Music feed port / output file / rate | top of `scripts/ytmd-nowplaying.py` |
+
+Conventions when adding code:
+
+- A value used in more than one file goes in `shell.qml` and is read as `root.<name>`.
+- A value used in one file goes in that file's Tweakables block, referenced as `<fileRootId>.<name>` (qualified, so a child's own `color` / `width` cannot shadow it).
+- Nerd Font icons in lists are written as code point escapes (`"\uf011"`, `"\u{f04b2}"`) so they survive copy-paste.
+
 ## Running the shell
 
 ```bash
@@ -160,4 +187,4 @@ QML `Process` commands build script paths from `root.scriptsDir`; never hardcode
 
 ### Color theme
 
-Mostly Catppuccin Mocha: `#11111b` (base), `#1e1e2e` (crust), `#313244` (surface), `#cdd6f4` (text), `#89b4fa` (blue), `#cba6f7` (mauve), `#fab387` (peach). Pills use their own status colors (battery green→red, volume blue/pink/grey, YTM red `#ff4444`).
+Catppuccin Mocha, defined once in `shell.qml` → "Theme" (`root.popupBg`, `root.colText`, `root.colBlue`, ...). Pills keep their own status colors in their Tweakables (battery green→red, volume blue/pink/grey, YTM red `#ff4444`). `EditDialogWindow.qml` and `Clipboard.qml` still use their own literal colors.

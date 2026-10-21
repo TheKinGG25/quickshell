@@ -30,6 +30,9 @@ DEBUG_HOST = "127.0.0.1"
 DEBUG_PORT = 9222
 OUT_FILE = os.path.expanduser("~/.cache/ytmd-now.json")
 POLL_SECONDS = 1.0
+# Tweakables above: DEBUG_PORT must match --remote-debugging-port, OUT_FILE must match
+# root.ytmCacheFile in shell.qml, POLL_SECONDS is how often the file is rewritten.
+# Queue size: change `before` / `after` (3 / 3) in PAGE_EXPR below.
 
 PAGE_EXPR = r"""
 (() => {

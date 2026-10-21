@@ -1,3 +1,7 @@
+// PowerMenu.qml - shutdown / restart / sleep / lock popup, centered under the bar.
+// Opened by middle-clicking the clock (Center.qml), closes when the mouse leaves.
+// Add, remove or reorder buttons in `buttons` below.
+
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -8,115 +12,110 @@ import QtQuick.Layouts
 PanelWindow {
     id: powerWindow
     property var root
-anchors { top: true; left: true; right: true }
 
-margins.top: 0 // Start from screen top to cover the bar area with buffer
+    // ── Tweakables ──
+    // One entry per button. icon: Nerd Font code point (https://www.nerdfonts.com/cheat-sheet),
+    // color: icon + hover border color, command: what runs on click.
+    property var buttons: [
+        { icon: "",    label: "Shutdown", color: root.colRed,    command: ["systemctl", "poweroff"] },
+        { icon: "",    label: "Restart",  color: root.colPeach,  command: ["systemctl", "reboot"] },
+        { icon: "\u{f04b2}", label: "Sleep",    color: root.colYellow, command: ["systemctl", "suspend"] },
+        { icon: "\u{f033e}", label: "Lock",     color: root.colBlue,   command: ["loginctl", "lock-session"] }
+    ]
+    property int buttonSize: 90         // each button is a square of this size
+    property int buttonSpacing: 28      // gap between buttons
+    property int iconSize: 32
+    property int labelSize: 12
+    property int cardRadius: 16
+    property int cardPadding: 40        // extra space around the button row inside the card
+    property int topOffset: 30          // distance from the screen top (just below the bar)
 
-// Window width includes side buffers
-property int windowWidth: contentRow.implicitWidth + 140
-margins.left: (screen.width - windowWidth) / 2
-margins.right: (screen.width - windowWidth) / 2
+    anchors { top: true; left: true; right: true }
 
-implicitWidth: windowWidth
-implicitHeight: contentRow.implicitHeight + 130
+    margins.top: 0 // Start from screen top to cover the bar area with buffer
 
-color: "transparent"
-visible: root && root.activePowerScreen === screen
+    // Window width includes side buffers (the invisible margin keeps the mouse "inside" a bit longer)
+    property int windowWidth: contentRow.implicitWidth + 140
+    margins.left: (screen.width - windowWidth) / 2
+    margins.right: (screen.width - windowWidth) / 2
 
-WlrLayershell.layer: WlrLayer.Overlay
-WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-WlrLayershell.namespace: "quickshell-powermenu"
-WlrLayershell.exclusiveZone: -1
+    implicitWidth: windowWidth
+    implicitHeight: contentRow.implicitHeight + 130
 
-MouseArea {
-    anchors.fill: parent
-    hoverEnabled: true
-    onExited: root.activePowerScreen = null
+    color: "transparent"
+    visible: root && root.activePowerScreen === screen
 
-    Rectangle {
-        width: contentRow.implicitWidth + 40
-        height: contentRow.implicitHeight + 40
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: 30 // Position the visible menu right below the bar
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.namespace: "quickshell-powermenu"
+    WlrLayershell.exclusiveZone: -1
 
-        radius: 16
-        color: "#DD11111b"
-        border.color: "#313244"
-        border.width: 1
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        onExited: root.activePowerScreen = null
 
-        RowLayout {
-            id: contentRow
-            anchors.centerIn: parent
-            spacing: 28
+        // Visible card
+        Rectangle {
+            width: contentRow.implicitWidth + powerWindow.cardPadding
+            height: contentRow.implicitHeight + powerWindow.cardPadding
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: powerWindow.topOffset // Position the visible menu right below the bar
 
-                PowerButton {
-                    btnIcon: ""
-                    label: "Shutdown"
-                    btnColor: "#f38ba8"
-                    onClicked: poweroffProc.running = true
-                }
-
-                PowerButton {
-                    btnIcon: ""
-                    label: "Restart"
-                    btnColor: "#fab387"
-                    onClicked: rebootProc.running = true
-                }
-
-                PowerButton {
-                    btnIcon: "󰒲"
-                    label: "Sleep"
-                    btnColor: "#f9e2af"
-                    onClicked: suspendProc.running = true
-                }
-
-                PowerButton {
-                    btnIcon: "󰌾"
-                    label: "Lock"
-                    btnColor: "#89b4fa"
-                    onClicked: lockProc.running = true
-                }
-            }
-        }
-    }
-
-    Process { id: poweroffProc; command: ["systemctl", "poweroff"] }
-    Process { id: rebootProc; command: ["systemctl", "reboot"] }
-    Process { id: suspendProc; command: ["systemctl", "suspend"] }
-    Process { id: lockProc; command: ["loginctl", "lock-session"] }
-
-    component PowerButton: Button {
-        id: control
-        property string btnIcon: ""
-        property string label: ""
-        property color btnColor: "white"
-
-        contentItem: ColumnLayout {
-            spacing: 8
-            Text {
-                text: control.btnIcon
-                font.family: root ? root.fontFamily : "sans-serif"
-                font.pixelSize: 32
-                color: control.btnColor
-                Layout.alignment: Qt.AlignHCenter
-            }
-            Text {
-                text: control.label
-                font.family: root ? root.fontFamily : "sans-serif"
-                font.pixelSize: 12
-                color: "#cdd6f4"
-                Layout.alignment: Qt.AlignHCenter
-            }
-        }
-
-        background: Rectangle {
-            implicitWidth: 90
-            implicitHeight: 90
-            radius: 12
-            color: control.hovered ? "#313244" : "transparent"
-            border.color: control.hovered ? control.btnColor : "transparent"
+            radius: powerWindow.cardRadius
+            color: root.popupBg
+            border.color: root.popupBorder
             border.width: 1
+
+            RowLayout {
+                id: contentRow
+                anchors.centerIn: parent
+                spacing: powerWindow.buttonSpacing
+
+                Repeater {
+                    model: powerWindow.buttons
+                    delegate: Button {
+                        id: control
+                        onClicked: {
+                            actionProc.command = modelData.command
+                            actionProc.running = false
+                            actionProc.running = true
+                        }
+
+                        // Icon on top, label below
+                        contentItem: ColumnLayout {
+                            spacing: 8
+                            Text {
+                                text: modelData.icon
+                                font.family: root.fontFamily
+                                font.pixelSize: powerWindow.iconSize
+                                color: modelData.color
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+                            Text {
+                                text: modelData.label
+                                font.family: root.fontFamily
+                                font.pixelSize: powerWindow.labelSize
+                                color: root.colText
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+                        }
+
+                        background: Rectangle {
+                            implicitWidth: powerWindow.buttonSize
+                            implicitHeight: powerWindow.buttonSize
+                            radius: 12
+                            color: control.hovered ? root.colSurface : "transparent"
+                            border.color: control.hovered ? modelData.color : "transparent"
+                            border.width: 1
+                        }
+                    }
+                }
+            }
         }
     }
+
+    // Runs the command of whichever button was clicked
+    Process { id: actionProc }
 }

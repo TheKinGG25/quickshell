@@ -1,27 +1,46 @@
+// YtmPill.qml - "now playing" pill (YouTube Music Desktop).
+// Shows cover thumbnail, title, artist and a thin progress line. Hidden when nothing is playing.
+// Left click: toggle YtmPanel. Data: root.ytm* in shell.qml. Width: root.ytmWidth.
+
 import QtQuick
 
 Rectangle {
+    id: ytmPill
     property var root
     property var screen
 
-    visible: root.ytmAvailable
-    width: 280
-    height: 22
-    radius: 6
-    clip: true
-    color: "#ff4444"
+    // ── Tweakables ──
+    property color pillColor: "#ff4444"             // pill background
+    property color titleColor: "black"
+    property color artistColor: "#1a0000"
+    property color thumbPlaceholder: "#333333"      // shown behind the cover while it loads
+    property int titleFontSize: 15
+    property int artistFontSize: 12
+    property int thumbSize: 16                      // cover thumbnail (px)
+    property real artistMaxShare: 0.6               // artist text may take at most this share of the width
+    property int progressHeight: 2                  // progress line at the bottom
+    property color progressTrack: Qt.rgba(0, 0, 0, 0.3)
+    property color progressFill: Qt.rgba(0, 0, 0, 0.7)
 
+    visible: root.ytmAvailable
+    width: root.ytmWidth
+    height: root.pillHeight
+    radius: root.pillRadius
+    clip: true
+    color: pillColor
+
+    // Cover thumbnail
     Rectangle {
         id: artThumb
         anchors.left: parent.left
         anchors.leftMargin: 4
         anchors.top: parent.top
         anchors.topMargin: (parent.height - height) / 2
-        width: 16
-        height: 16
+        width: ytmPill.thumbSize
+        height: ytmPill.thumbSize
         radius: 2
         clip: true
-        color: "#333333"
+        color: ytmPill.thumbPlaceholder
 
         Image {
             anchors.fill: parent
@@ -30,6 +49,7 @@ Rectangle {
         }
     }
 
+    // Title (left, bold) and artist (right)
     Item {
         anchors.left: artThumb.right
         anchors.leftMargin: 5
@@ -46,8 +66,8 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text: root.ytmTitle
             elide: Text.ElideRight
-            color: "black"
-            font.pixelSize: 15
+            color: ytmPill.titleColor
+            font.pixelSize: ytmPill.titleFontSize
             font.family: root.fontFamily
             font.bold: true
         }
@@ -56,29 +76,30 @@ Rectangle {
             id: artistText
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(implicitWidth, parent.width * 0.6)
+            width: Math.min(implicitWidth, parent.width * ytmPill.artistMaxShare)
             text: root.ytmArtist
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignRight
-            color: "#1a0000"
-            font.pixelSize: 12
+            color: ytmPill.artistColor
+            font.pixelSize: ytmPill.artistFontSize
             font.family: root.fontFamily
         }
     }
 
+    // Progress line: track, then filled part
     Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 2
-        color: Qt.rgba(0, 0, 0, 0.3)
+        height: ytmPill.progressHeight
+        color: ytmPill.progressTrack
     }
     Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         width: parent.width * (root.ytmProgress / 100)
-        height: 2
-        color: Qt.rgba(0, 0, 0, 0.7)
+        height: ytmPill.progressHeight
+        color: ytmPill.progressFill
     }
 
     MouseArea {

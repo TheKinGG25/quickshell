@@ -1,3 +1,8 @@
+// WindowMenu.qml - open-window switcher, centered under the bar. Opened by left-clicking the clock.
+// Top: one tab per desktop (count: root.desktopCount). Below: windows on the selected desktop.
+// Click a window to focus it. Hover a window + F2 to edit its icon / name (EditDialogWindow.qml).
+// Window list comes from root.windows (scripts/kwin-windows.py + scripts/icons.json).
+
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -11,9 +16,18 @@ PanelWindow {
     property int selectedDesktop: root ? root.currentDesktop : 1
     property bool shouldShowMenu: false
 
+    // ── Tweakables ──
+    property int windowWidth: 500       // popup width (the card is 40px narrower)
+    property int maxCardHeight: 400     // list scrolls beyond this
+    property int topOffset: 30          // distance from the screen top (just below the bar)
+    property int cardRadius: 16
+    property int rowHeight: 48          // one window row
+    property int iconSize: 24           // app icon in each row
+    property int closeDelayMs: 200      // wait after the mouse leaves before closing
+    property string emptyText: "No windows on this desktop"
+
     anchors { top: true; left: true; right: true }
     margins.top: 0
-    property int windowWidth: 500
     margins.left: (screen.width - windowWidth) / 2
     margins.right: (screen.width - windowWidth) / 2
 
@@ -23,6 +37,7 @@ PanelWindow {
     color: "transparent"
     visible: root && (root.activeWindowScreen === screen)
 
+    // Always open on the desktop you are currently on
     onVisibleChanged: {
         if (visible && root) {
             selectedDesktop = root.currentDesktop;
@@ -37,13 +52,14 @@ PanelWindow {
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand     // needed for F2
     WlrLayershell.namespace: "quickshell-windowmenu"
     WlrLayershell.exclusiveZone: -1
 
+    // Close shortly after the mouse leaves (not while the edit dialog is open)
     Timer {
         id: closeMenuTimer
-        interval: 200
+        interval: windowMenu.closeDelayMs
         running: false
         onTriggered: {
             if (!editDialogWindow.dialogOpen) {
@@ -62,16 +78,17 @@ PanelWindow {
             closeMenuTimer.stop()
         }
 
+        // Visible card
         Rectangle {
             width: parent.width - 40
-            height: Math.min(column.implicitHeight + 40, 400)
+            height: Math.min(column.implicitHeight + 40, windowMenu.maxCardHeight)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: 30
+            anchors.topMargin: windowMenu.topOffset
 
-            radius: 16
-            color: "#DD11111b"
-            border.color: "#313244"
+            radius: windowMenu.cardRadius
+            color: root.popupBg
+            border.color: root.popupBorder
             border.width: 1
 
             ColumnLayout {
@@ -80,12 +97,12 @@ PanelWindow {
                 anchors.margins: 15
                 spacing: 15
 
-                // Desktop Selector
+                // ── Desktop tabs ──
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
                     Repeater {
-                        model: 4
+                        model: root.desktopCount
                         delegate: Button {
                             id: desktopBtn
                             property int desktopNum: index + 1
@@ -93,10 +110,10 @@ PanelWindow {
                             Layout.fillWidth: true
                             flat: true
                             onClicked: windowMenu.selectedDesktop = desktopNum
-                            
+
                             contentItem: Text {
                                 text: desktopBtn.text
-                                color: windowMenu.selectedDesktop === desktopBtn.desktopNum ? "#89b4fa" : "#cdd6f4"
+                                color: windowMenu.selectedDesktop === desktopBtn.desktopNum ? root.colBlue : root.colText
                                 font.bold: windowMenu.selectedDesktop === desktopBtn.desktopNum
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
@@ -104,21 +121,21 @@ PanelWindow {
                                 font.pixelSize: 16
                             }
                             background: Rectangle {
-                                color: desktopBtn.hovered ? "#313244" : "transparent"
+                                color: desktopBtn.hovered ? root.colSurface : "transparent"
                                 radius: 8
-                                border.color: windowMenu.selectedDesktop === desktopBtn.desktopNum ? "#89b4fa" : "transparent"
+                                border.color: windowMenu.selectedDesktop === desktopBtn.desktopNum ? root.colBlue : "transparent"
                                 border.width: 1
                             }
                         }
                     }
                 }
 
-                // Window List
+                // ── Window list ──
                 ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    
+
                     ListView {
                         id: windowListView
                         model: {
@@ -129,24 +146,26 @@ PanelWindow {
                         spacing: 5
                         focus: true
                         currentIndex: -1
-                        
+
+                        // One row: icon + app name
                         delegate: ItemDelegate {
                             id: windowDelegate
                             width: windowListView.width - 20
-                            height: 48
+                            height: windowMenu.rowHeight
                             focus: false
                             activeFocusOnTab: false
-                            
+
+                            // F2 on the hovered row opens the icon / name editor
                             Keys.onPressed: (event) => {
                                 if (event.key === Qt.Key_F2) {
                                     editDialogWindow.setEditingApp(modelData);
                                     event.accepted = true;
                                 }
                             }
-                            
+
                             contentItem: RowLayout {
                                 spacing: 12
-                                
+
                                 Image {
                                     source: {
                                         if (!modelData || !modelData.icon) return "";
@@ -157,8 +176,8 @@ PanelWindow {
                                         }
                                         return "image://icon/" + iconName;
                                     }
-                                    Layout.preferredWidth: 24
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredWidth: windowMenu.iconSize
+                                    Layout.preferredHeight: windowMenu.iconSize
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                     onStatusChanged: {
@@ -173,10 +192,10 @@ PanelWindow {
                                         }
                                     }
                                 }
-                                
+
                                 Text {
                                     text: modelData && modelData.app ? modelData.app : "Unknown App"
-                                    color: "#cdd6f4"
+                                    color: root.colText
                                     font.bold: true
                                     font.family: root.fontFamily
                                     font.pixelSize: 14
@@ -184,11 +203,12 @@ PanelWindow {
                                     elide: Text.ElideRight
                                 }
                             }
+                            // Selected row: surface color, hovered row: darker
                             background: Rectangle {
-                                color: windowListView.currentIndex === index ? "#313244" : (windowDelegate.hovered ? "#1e1e2e" : "transparent")
+                                color: windowListView.currentIndex === index ? root.colSurface : (windowDelegate.hovered ? root.colDark : "transparent")
                                 radius: 8
                             }
-                            
+
                             MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
@@ -201,6 +221,7 @@ PanelWindow {
                                 onExited: {
                                     windowDelegate.focus = false
                                 }
+                                // Click: focus that window (scripts/kwin-windows.py <id>) and close
                                 onClicked: (mouse) => {
                                     if (mouse.button === Qt.LeftButton) {
                                         if (modelData && modelData.id) {
@@ -212,12 +233,12 @@ PanelWindow {
                                 }
                             }
                         }
-                        
+
                         Text {
                             anchors.centerIn: parent
                             visible: windowListView.count === 0
-                            text: "No windows on this desktop"
-                            color: "#6c7086"
+                            text: windowMenu.emptyText
+                            color: root.colMuted
                             font.family: root.fontFamily
                             font.pixelSize: 14
                         }
@@ -226,7 +247,7 @@ PanelWindow {
             }
         }
     }
-    
+
     Process { id: runProcess }
     Process { id: saveConfigProcess }
 

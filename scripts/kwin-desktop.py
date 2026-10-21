@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""
+kwin-desktop.py - read or switch the KWin virtual desktop (over DBus with qdbus6).
+
+  kwin-desktop.py        -> prints the current desktop number (1-based), polled by shell.qml
+  kwin-desktop.py <n>    -> switches to desktop n, called by Left.qml on click
+"""
 import subprocess
 import re
 import sys
