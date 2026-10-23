@@ -22,6 +22,7 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Music API address / token / poll rate | `shell.qml` → "Music" |
 | Clock format, ring colors | `Center.qml` → Tweakables |
 | Desktop number colors / spacing | `Left.qml` → Tweakables |
+| How a workspace switch is sent | `shell.qml` → `switchDesktop()` (branches on `root.hyprland`) |
 | Pill order | `Right.qml` |
 | A pill's colors, icons, scroll step | `VolumePill.qml` / `BatteryPill.qml` / `YtmPill.qml` → Tweakables |
 | Layout of the volume / battery pills (padding, min width, fonts) | `components/ValuePill.qml` |
@@ -76,6 +77,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 `shell.qml` is the single root (`ShellRoot`, id `shellRoot`) that owns **all global state** as properties:
 
 - Constants: `fontFamily`, `fontSize`, `barHeight`
+- Compositor: `hyprland` (bool) and `compositor` ("Hyprland" / "KWin"), plus `switchDesktop(n)` and `hyprWorkspaceId`
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`, `ytmVolume` (0-100), `ytmQueue[]`; functions `ytmCommand(cmd, body)`, `ytmReadVolume()`, `ytmSetVolume(v)`, `ytmNudgeVolume(up)`, `ytmFetchQueue()`
 - Clipboard: `clipboardIndex`, `clipboardRunning` (fed by `clipboard.py`, work in progress)
@@ -90,7 +92,7 @@ Polling cadence (all in `shell.qml`):
 |----------|------|
 | event | `pactl subscribe` (long-running): any sink/server change triggers `wpctl get-volume` + bluetooth sink check, debounced 30 ms |
 | 2 s | fallback volume + sink read, battery (first `/sys/class/power_supply/BAT*`), restart `pactl subscribe` if it died |
-| 200 ms | `kwin-desktop.py` (current desktop) |
+| 200 ms | `kwin-desktop.py` (current desktop) - **KWin only**, Hyprland pushes events instead |
 | 500 ms | `kwin-windows.py` while WindowMenu is open |
 | 1 s | `app-volumes.py` (skipped while VolumeSlider is open), `powerprofilesctl get` |
 | 500 ms (2 s idle) | music API `GET /track/state` (+ `GET /track` on track change) |
@@ -114,11 +116,34 @@ Variants {
 
 Popup `PanelWindow`s live on `WlrLayer.Overlay` and use `visible: root && root.activeXScreen === screen`. Click handlers toggle the relevant `root.activeXScreen` between the current screen and null. Panels close on `MouseArea.onExited`.
 
+### Compositor support (Plasma / Hyprland)
+
+The workspace selector works on both. `shell.qml` sets `readonly property bool hyprland` from
+`Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE")`, which Hyprland exports to every client, and
+everything workspace-related branches on it:
+
+| | KWin (Plasma) | Hyprland |
+|---|---|---|
+| Current desktop | `kwin-desktop.py` polled every `desktopPollMs` | `Hyprland.focusedWorkspace.id` → `hyprWorkspaceId`, pushed as events, no polling (the poll timer is off) |
+| Switching | `kwin-desktop.py <n>` | `Hyprland.dispatch(...)` |
+
+Hyprland workspace ids are 1-based like Plasma's desktop numbers, so `Left.qml` needs no branch of
+its own; it just calls `root.switchDesktop(n)`.
+
+**Dispatch syntax depends on the Hyprland config language.** Quickshell sends the string as
+`return hl.dispatch(<string>)`. With a Lua config (`Hyprland.usingLua`, true on 0.56 here) a bare
+`"workspace 3"` is a Lua syntax error and `hl.dispatch` wants a dispatcher object, so the call is
+`hl.dsp.focus{workspace="3"}`; older non-Lua Hyprland takes the plain `"workspace 3"`.
+`switchDesktop()` handles both.
+
+Still KWin-only: **WindowMenu** (`kwin-windows.py` returns `[]` under Hyprland) and the
+`desktopCount` of 6, since Hyprland creates workspaces on demand. See `TODO.md`.
+
 ### Bar layout
 
 `Bar.qml` → `Left | Center (centered) | Right`
 
-- **Left.qml** - 6 virtual desktop numbers; clicking calls `kwin-desktop.py <number>`
+- **Left.qml** - `root.desktopCount` desktop / workspace numbers; clicking calls `root.switchDesktop(n)`, which picks the right mechanism for the running compositor
 - **Center.qml** - Clock with 12h arc indicator (blue AM / peach PM); left-click opens WindowMenu, middle-click opens PowerMenu
 - **Right.qml** - Row of pills: `YtmPill | VolumePill | BatteryPill`
 
@@ -158,7 +183,7 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 
 | Script | Usage | Purpose |
 |--------|-------|---------|
-| `kwin-desktop.py` | no args → print current desktop number; `<n>` → switch | KWin VirtualDesktopManager over DBus |
+| `kwin-desktop.py` | no args → print current desktop number; `<n>` → switch | KWin VirtualDesktopManager over DBus (**not used under Hyprland**) |
 | `kwin-windows.py` | no args → print JSON window list; `<win_id>` → focus | KWin WindowsRunner + `icons.json` enrichment |
 | `app-volumes.py` | prints JSON array of `{id, name, volume}` | per-app PulseAudio/PipeWire streams |
 | `save-icons-config.py` | `<app_id> <icon> <display_name>` | writes to `icons.json` |
@@ -202,7 +227,8 @@ The window list enrichment pipeline in `kwin-windows.py` looks up each window's 
 
 ### External dependencies
 
-- `qdbus6` - KWin virtual desktop and window info over DBus
+- `qdbus6` - KWin virtual desktop and window info over DBus (Plasma sessions only)
+- Hyprland - read through Quickshell's own `Quickshell.Hyprland` module, no extra tool needed
 - `wpctl` - WirePlumber master audio control
 - `pactl` - per-app audio stream volumes
 - `bluetoothctl` - headphone connect toggle

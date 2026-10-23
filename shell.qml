@@ -8,6 +8,7 @@
 //   - what data a pill shows                       -> the Process that fills it ("Processes")
 
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Io
 import QtQuick
@@ -44,6 +45,12 @@ ShellRoot {
     property color colYellow: "#f9e2af"
     property color colGreen: "#a6e3a1"
     property color colRosewater: "#f5e0dc"  // pressed slider handle
+
+    // ── Compositor ── Plasma (KWin) and Hyprland handle workspaces completely differently, so
+    // anything workspace-related asks `hyprland` first. HYPRLAND_INSTANCE_SIGNATURE is set by
+    // Hyprland itself for every client, so it is the reliable test.
+    readonly property bool hyprland: Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") ? true : false
+    readonly property string compositor: hyprland ? "Hyprland" : "KWin"
 
     // ── Paths ──
     property string homeDir: Quickshell.env("HOME")
@@ -182,7 +189,8 @@ ShellRoot {
         }
     }
 
-    // Current desktop number for Left.qml (scripts/kwin-desktop.py prints e.g. "3")
+    // Current desktop number for Left.qml under KWin (scripts/kwin-desktop.py prints e.g. "3").
+    // Hyprland does not need this: it pushes workspace changes as events (see hyprWorkspaceId).
     Process {
         id: desktopProcess
         command: ["python3", scriptsDir + "/kwin-desktop.py"]
@@ -404,14 +412,38 @@ ShellRoot {
 
     // ── Timers ──
 
-    // Current desktop
+    // Current desktop. KWin only: polling DBus is the only way to notice a desktop switch there.
     Timer {
-        interval: desktopPollMs; running: true; repeat: true
+        interval: desktopPollMs; running: !shellRoot.hyprland; repeat: true
         onTriggered: {
             desktopProcess.running = false
             desktopProcess.running = true
         }
     }
+
+    // Hyprland reports the focused workspace over its event socket, so this needs no timer.
+    // Workspace ids are 1-based, like Plasma's desktop numbers, so Left.qml needs no changes.
+    readonly property int hyprWorkspaceId: hyprland && Hyprland.focusedWorkspace
+                                           ? Hyprland.focusedWorkspace.id : 0
+    onHyprWorkspaceIdChanged: if (hyprWorkspaceId > 0) currentDesktop = hyprWorkspaceId
+
+    // Switch desktop / workspace. Left.qml calls this and does not care which compositor is running.
+    function switchDesktop(n) {
+        currentDesktop = n                  // highlight at once, the compositor confirms it
+        if (hyprland) {
+            // Quickshell sends the string as `return hl.dispatch(<string>)`. A Hyprland with a Lua
+            // config (0.56 here) wants a dispatcher object, so a bare "workspace 3" is a Lua syntax
+            // error; older, non-Lua ones take the plain string. Hyprland.usingLua says which.
+            if (Hyprland.usingLua) Hyprland.dispatch("hl.dsp.focus{workspace=\"" + n + "\"}")
+            else Hyprland.dispatch("workspace " + n)
+        } else {
+            desktopSwitchProcess.command = ["python3", scriptsDir + "/kwin-desktop.py", String(n)]
+            desktopSwitchProcess.running = false
+            desktopSwitchProcess.running = true
+        }
+    }
+
+    Process { id: desktopSwitchProcess }
 
     // Debounces bursts of pactl events into one volume/sink read
     Timer {
@@ -451,7 +483,8 @@ ShellRoot {
 
     // First read of everything at startup
     Component.onCompleted: {
-        desktopProcess.running = true
+        console.log("quickshell: compositor detected as " + compositor)
+        if (!hyprland) desktopProcess.running = true
         volumeProcess.running = true
         sinkProcess.running = true
         volumeEventsProcess.running = true

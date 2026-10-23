@@ -37,7 +37,7 @@ Rules the code follows:
 |------|------|----------------|
 | `shell.qml` | `ShellRoot` | Global state, all polling processes and timers, instantiates every window per screen |
 | `Bar.qml` | `PanelWindow` (Top layer, anchored top/left/right) | 30px translucent strip holding Left / Center / Right. Publishes its own screen's YtmPill position (`setYtmPillGeom`) for YtmPanel placement |
-| `Left.qml` | `Row` | `root.desktopCount` desktop numbers, active one white/bold. Click → `kwin-desktop.py <n>` (optimistically sets `currentDesktop`) |
+| `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, active one white/bold. Click → `root.switchDesktop(n)`, which branches on the compositor (optimistically sets `currentDesktop`) |
 | `Center.qml` | `MouseArea` | Canvas arc showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu, middle → PowerMenu |
 | `Right.qml` | `Row` | `YtmPill`, `VolumePill`, `BatteryPill` |
 | `YtmPill.qml` | `Rectangle` 280x22 | Thumbnail, title, artist, 2px progress line. Hidden unless `ytmAvailable`. Click toggles YtmPanel |
@@ -67,7 +67,7 @@ Shared building blocks, imported with `import "components"`.
 
 | Script | Called by | In → Out |
 |--------|-----------|----------|
-| `kwin-desktop.py` | `shell.qml` (200ms), `Left.qml` | none → `3`; `<n>` → switches desktop |
+| `kwin-desktop.py` | `shell.qml` (200ms, KWin only), `switchDesktop()` | none → `3`; `<n>` → switches desktop |
 | `kwin-windows.py` | `shell.qml` (500ms while WindowMenu open), `WindowMenu.qml` | none → JSON window list enriched from `icons.json`; `<id>` → focus window |
 | `app-volumes.py` | `shell.qml` (1s) | → `[{id, name, volume}]` parsed from `pactl list sink-inputs` |
 | `save-icons-config.py` | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
@@ -86,7 +86,7 @@ Shared building blocks, imported with `import "components"`.
 | event + 2s | `wpctl get-volume @DEFAULT_AUDIO_SINK@` | `volumeLevel`, `volumeMuted` |
 | event + 2s | `wpctl inspect ... \| grep -c api.bluez5.address` | `headphonesActive` |
 | 2s | `sh -c` loop over `/sys/class/power_supply/BAT*`, first match: `capacity` then `status` | `batteryLevel`, `batteryStatus` |
-| 200ms | `kwin-desktop.py` | `currentDesktop` |
+| 200ms | `kwin-desktop.py` (KWin only; under Hyprland the timer is off and `Hyprland.focusedWorkspace` drives `currentDesktop`) | `currentDesktop` |
 | 500ms | `kwin-windows.py` (only while WindowMenu open) | `windows` |
 | 1s | `app-volumes.py` (only while VolumeSlider closed) | `appVolumes` |
 | 1s | `powerprofilesctl get` | `powerProfile` |

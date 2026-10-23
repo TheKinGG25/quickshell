@@ -1,9 +1,9 @@
-// Left.qml - virtual desktop numbers on the left of the bar.
-// Click a number to switch desktop (scripts/kwin-desktop.py <n>).
+// Left.qml - virtual desktop / workspace numbers on the left of the bar.
+// Click a number to switch: root.switchDesktop() in shell.qml picks the right way for the
+// running compositor (Hyprland dispatch, or scripts/kwin-desktop.py on Plasma).
 // How many numbers: root.desktopCount in shell.qml.
 
 import QtQuick
-import Quickshell.Io
 
 Row {
     id: leftRow
@@ -31,17 +31,8 @@ Row {
                 width: parent.width + leftRow.spacing
                 height: leftRow.clickHeight
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    root.currentDesktop = index + 1     // highlight right away, the poll confirms it
-                    switchProcess.command = ["python3", root.scriptsDir + "/kwin-desktop.py", (index + 1).toString()]
-                    switchProcess.running = false
-                    switchProcess.running = true
-                }
+                onClicked: root.switchDesktop(index + 1)
             }
         }
-    }
-
-    Process {
-        id: switchProcess
     }
 }
