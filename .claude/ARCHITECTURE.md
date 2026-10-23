@@ -39,8 +39,8 @@ Rules the code follows:
    only the `active*Screen` flags. Anything used by more than one file belongs there.
 2. **Poll what cannot push.** Most system values are polled: a `Timer` sets `process.running =
    true`, the process prints to stdout, a `SplitParser.onRead` assigns a property, bindings do the
-   rest. Three sources push instead and have no timer: `pactl subscribe` (audio), Hyprland's event
-   socket through `Quickshell.Hyprland` (workspaces), and nothing else. The music API is polled
+   rest. Three sources push instead and have no timer: `pactl subscribe` (audio), the Hyprland
+   workspace grid file `hypr-grid.json` (a watched `FileView`), and nothing else. The music API is polled
    over HTTP rather than by a process.
 3. **Per-screen windows, global flags.** Each window exists on every screen and shows itself only
    when `root.activeXScreen === screen`, so a popup opens on the monitor whose bar was clicked.
@@ -61,8 +61,8 @@ Rules the code follows:
 |------|------|----------------|
 | `shell.qml` | `ShellRoot` | Global state, compositor detection, every poller and timer, the music API client, instantiates each window per screen |
 | `Bar.qml` | `PanelWindow` (Top layer, top/left/right) | `root.barHeight` (30px) translucent strip holding Left / Center / Right. Publishes its own screen's YtmPill position through `setYtmPillGeom()` so YtmPanel knows where to grow from |
-| `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, current one white and bold, Hyprland workspaces that do not exist yet dimmed (`missingColor`). Click → `root.switchDesktop(n)` |
-| `Center.qml` | `MouseArea` | Canvas ring showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu, middle → PowerMenu |
+| `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, current one white and bold, on Hyprland labelled `[n,m]` with this screen's m (`root.gridM`). Click → `root.switchDesktop(n)` |
+| `Center.qml` | `MouseArea` | Canvas ring showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu (KWin only), middle → PowerMenu |
 | `Right.qml` | `Row` | `YtmPill`, `VolumePill`, `BatteryPill` |
 | `YtmPill.qml` | `Rectangle`, `ytmWidth` x `pillHeight` (280x22) | Cover thumbnail, title, artist, 2px progress line. Hidden unless `ytmAvailable`, and transparent while YtmPanel is open on this screen. Click toggles the panel, scroll changes the app's volume |
 | `YtmPanel.qml` | `PanelWindow` (Overlay, starts at the screen top with `ExclusionMode.Ignore` + a `mask`) | The music player. One `morph` value (0..1) grows the pill into a 280x448 card centered on it, crossfading a copy of the pill into the content; a 56px side card of buttons sits below the bar beside it. Cover flips to the queue, side card flips to a vertical volume slider, blurred cover art behind both |
@@ -97,7 +97,7 @@ Each prints JSON or a plain value on stdout, which QML parses in a `SplitParser`
 |--------|-----------|----------|
 | `kwin-desktop.py` | `shell.qml` (200ms, KWin only), `switchDesktop()` | none → `3`; `<n>` → switches desktop |
 | `kwin-windows.py` | `shell.qml` (500ms while WindowMenu is open, KWin only), `focusWindow()` | none → JSON window list enriched from `icons.json`; `<id>` → focus that window |
-| `hypr-windows.py` | `shell.qml` (500ms while WindowMenu is open, Hyprland only) | `hyprctl clients -j` → the same JSON window list (focusing is done in QML) |
+| `hypr-windows.py` | nothing at the moment (WindowMenu does not open under Hyprland) | `hyprctl clients -j` → the same JSON window list (focusing is done in QML) |
 | `window_icons.py` | imported by both window scripts | shared `icons.json` loading, class → icon / display name lookup, blacklist |
 | `app-volumes.py` | `shell.qml` (1s) | → `[{id, name, volume}]` parsed from `pactl list sink-inputs` |
 | `save-icons-config.py` | `EditDialogWindow.qml` | `<app_id> <icon> <name>` → updates `icons.json` |
@@ -116,17 +116,18 @@ which Hyprland exports to every client. Everything workspace- or window-related 
 
 | | KWin (Plasma) | Hyprland |
 |---|---|---|
-| Current desktop | `kwin-desktop.py` polled every `desktopPollMs` | `Hyprland.focusedWorkspace.id`, pushed as events (the poll timer is off) |
-| Switching | `kwin-desktop.py <n>` | `Hyprland.dispatch(...)` |
-| Which workspaces exist | all of 1..`desktopCount` | `Hyprland.workspaces`; `desktopExists(n)` is false for the rest and Left.qml dims them |
-| Window list | `kwin-windows.py` | `hypr-windows.py`, same JSON shape |
+| Current desktop | `kwin-desktop.py` polled every `desktopPollMs` | `hyprGrid.n`, read from `$XDG_RUNTIME_DIR/hypr-grid.json` (a `FileView` with `watchChanges`), no polling (the poll timer is off) |
+| Switching | `kwin-desktop.py <n>` | `Hyprland.dispatch(...)` calling `grid.switch_n(n)` in `~/.config/hypr/grid.lua` |
+| Desktop label | `n` | `[n,m]`, m from `gridM(screen.name, n)`: per screen, current m for the active n, last visited m for the rest |
+| Window list | `kwin-windows.py` | none: WindowMenu does not open under Hyprland (its tabs are desktop numbers, grid ids are not) |
 | Focusing a window | `kwin-windows.py <id>` | `Hyprland.dispatch(...)` with the window address |
 
 Hyprland's dispatch syntax depends on its config language. Quickshell sends the string as
 `return hl.dispatch(<string>)`, so with a Lua config (`Hyprland.usingLua`) a bare `"workspace 3"`
-is a Lua syntax error and `hl.dispatch` wants a dispatcher object: the call becomes
-`hl.dsp.focus{workspace="3"}`. Non-Lua Hyprland takes the plain string. Both `switchDesktop()` and
-`focusWindow()` handle the split.
+is a Lua syntax error; `hl.dispatch` takes a dispatcher object or a function. `switchDesktop()`
+sends `function() grid.switch_n(n) end` into `~/.config/hypr/grid.lua` (the 2D workspace grid:
+`[n,m]`, n global across monitors, m per monitor, state in `$XDG_RUNTIME_DIR/hypr-grid.json`), and
+`focusWindow()` sends `hl.dsp.focus{window="address:..."}`. Non-Lua Hyprland takes plain strings.
 
 Window classes differ between the two (KWin reports `code`, Hyprland `com.microsoft.VSCode`), so an
 `icons.json` mapping saved in one session does not necessarily apply in the other; the file simply
@@ -139,7 +140,7 @@ gains an entry per class.
 | event | `pactl subscribe` (long-running). A `sink` or `server` event restarts a 30ms debounce timer that runs the two reads below | |
 | event + 2s | `wpctl get-volume @DEFAULT_AUDIO_SINK@` | `volumeLevel`, `volumeMuted` |
 | event + 2s | `wpctl inspect ... \| grep -c api.bluez5.address` | `headphonesActive` |
-| event | Hyprland event socket, through `Quickshell.Hyprland` | `currentDesktop`, `hyprWorkspaceIds` |
+| file change | `$XDG_RUNTIME_DIR/hypr-grid.json`, written by `~/.config/hypr/grid.lua` (Hyprland only) | `hyprGrid`, `currentDesktop` |
 | 2s | `sh -c` loop over `/sys/class/power_supply/BAT*`, first match: `capacity` then `status` | `batteryLevel`, `batteryStatus` |
 | 200ms | `kwin-desktop.py` (KWin only) | `currentDesktop` |
 | 500ms | `root.windowsScript` (only while WindowMenu is open) | `windows` |

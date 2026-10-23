@@ -29,6 +29,7 @@ PanelWindow {
             anchors.leftMargin: barWindow.sideMargin
             anchors.verticalCenter: parent.verticalCenter
             root: barWindow.root
+            screen: barWindow.screen
         }
 
         Center {

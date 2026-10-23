@@ -24,7 +24,7 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Desktop number colors / spacing | `Left.qml` → Tweakables |
 | How a workspace switch is sent | `shell.qml` → `switchDesktop()` (branches on `root.hyprland`) |
 | How a window is focused | `shell.qml` → `focusWindow()` (branches on `root.hyprland`) |
-| Color of a workspace that does not exist yet (Hyprland) | `Left.qml` → `missingColor` |
+| Hyprland workspace grid ([n,m] ids, keybinds, monitor hotplug) | `~/.config/hypr/grid.lua` (Hyprland config, not this repo) |
 | See each popup's hover area on screen | `shell.qml` → `debugPopups: true` |
 | Pill order | `Right.qml` |
 | A pill's colors, icons, scroll step | `VolumePill.qml` / `BatteryPill.qml` / `YtmPill.qml` → Tweakables |
@@ -80,7 +80,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 `shell.qml` is the single root (`ShellRoot`, id `shellRoot`) that owns **all global state** as properties:
 
 - Constants: `fontFamily`, `fontSize`, `barHeight`
-- Compositor: `hyprland` (bool), `compositor` ("Hyprland" / "KWin"), `windowsScript`, `hyprWorkspaceId`, `hyprWorkspaceIds`, plus `switchDesktop(n)`, `focusWindow(id)`, `desktopExists(n)`, `refreshWindows()`
+- Compositor: `hyprland` (bool), `compositor` ("Hyprland" / "KWin"), `windowsScript`, `hyprGrid` (Hyprland workspace grid state), plus `switchDesktop(n)`, `focusWindow(id)`, `gridM(screenName, n)`, `refreshWindows()`
 - Debug: `debugPopups` (draws each popup's hover area)
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`, `ytmVolume` (0-100), `ytmQueue[]`; functions `ytmCommand(cmd, body)`, `ytmReadVolume()`, `ytmSetVolume(v)`, `ytmNudgeVolume(up)`, `ytmFetchQueue()`
@@ -128,35 +128,39 @@ everything workspace-related branches on it:
 
 | | KWin (Plasma) | Hyprland |
 |---|---|---|
-| Current desktop | `kwin-desktop.py` polled every `desktopPollMs` | `Hyprland.focusedWorkspace.id` → `hyprWorkspaceId`, pushed as events, no polling (the poll timer is off) |
-| Switching | `kwin-desktop.py <n>` | `Hyprland.dispatch(...)` |
-| Which workspaces exist | all of 1..`desktopCount` | `Hyprland.workspaces` → `hyprWorkspaceIds`; `desktopExists(n)` is false for the rest and `Left.qml` dims them |
-| Window list | `kwin-windows.py` | `hypr-windows.py` (`hyprctl clients -j`), same JSON shape |
+| Current desktop | `kwin-desktop.py` polled every `desktopPollMs` | `hyprGrid.n`, read from `$XDG_RUNTIME_DIR/hypr-grid.json` (a `FileView` with `watchChanges`), no polling (the poll timer is off) |
+| Switching | `kwin-desktop.py <n>` | `Hyprland.dispatch(...)` calling `grid.switch_n(n)` in `~/.config/hypr/grid.lua` |
+| Desktop label | `n` | `[n,m]`, m from `gridM(screen.name, n)`: per screen, current m for the active n, last visited m for the rest |
+| Window list | `kwin-windows.py` | none: WindowMenu does not open under Hyprland (its tabs are desktop numbers, grid ids are not) |
 | Focusing a window | `kwin-windows.py <id>` | `Hyprland.dispatch(...)` with the window address |
 
-Hyprland workspace ids are 1-based like Plasma's desktop numbers, so `Left.qml` needs no branch of
-its own; it just calls `root.switchDesktop(n)`.
+Hyprland runs a 2D workspace grid, defined in `~/.config/hypr/grid.lua`: workspace `[n,m]`, n = 1..6
+switched on every monitor at once, m per monitor (Hyprland id = `monitor_index*10000 + n*1000 + m`).
+grid.lua rewrites `$XDG_RUNTIME_DIR/hypr-grid.json` on every change:
+`{"n": 2, "screens": {"eDP-2": [m for n = 1..6], "HDMI-A-1": [...]}}`. `shell.qml` watches it into
+`hyprGrid`; `Left.qml` labels each number `[n,m]` for its own screen through `root.gridM()`.
 
 **Dispatch syntax depends on the Hyprland config language.** Quickshell sends the string as
 `return hl.dispatch(<string>)`. With a Lua config (`Hyprland.usingLua`, true on 0.56 here) a bare
-`"workspace 3"` is a Lua syntax error and `hl.dispatch` wants a dispatcher object, so the call is
-`hl.dsp.focus{workspace="3"}`; older non-Lua Hyprland takes the plain `"workspace 3"`.
-`switchDesktop()` handles both.
+`"workspace 3"` is a Lua syntax error. `hl.dispatch` takes a dispatcher object or a function, so
+`switchDesktop()` sends `function() grid.switch_n(3) end` (grid.lua sets the global `grid`) and
+`focusWindow()` sends `hl.dsp.focus{window="address:..."}`; older non-Lua Hyprland takes the plain
+strings.
 
 Both window-list scripts share `scripts/window_icons.py` for the `icons.json` lookup, so F2
-editing works the same on either compositor. Note the class names differ between them (KWin says
+editing works the same on either compositor (`hypr-windows.py` is unused while WindowMenu stays
+off under Hyprland). Note the class names differ between them (KWin says
 `code`, Hyprland says `com.microsoft.VSCode`), so a mapping saved on one session does not
 necessarily apply on the other; `icons.json` just gains an entry per class.
 
-`desktopCount` is still a fixed 6 on both; on Hyprland the ones that do not exist are dimmed
-rather than hidden, and clicking one creates it.
+`desktopCount` is a fixed 6 on both, matching grid.lua's 6 horizontal workspaces.
 
 ### Bar layout
 
 `Bar.qml` → `Left | Center (centered) | Right`
 
-- **Left.qml** - `root.desktopCount` desktop / workspace numbers; clicking calls `root.switchDesktop(n)`, which picks the right mechanism for the running compositor. On Hyprland, workspaces that do not exist yet are dimmed (`missingColor`)
-- **Center.qml** - Clock with 12h arc indicator (blue AM / peach PM); left-click opens WindowMenu, middle-click opens PowerMenu
+- **Left.qml** - `root.desktopCount` desktop / workspace numbers; clicking calls `root.switchDesktop(n)`, which picks the right mechanism for the running compositor. On Hyprland each reads `[n,m]` with this screen's m (`root.gridM`)
+- **Center.qml** - Clock with 12h arc indicator (blue AM / peach PM); left-click opens WindowMenu (KWin only), middle-click opens PowerMenu
 - **Right.qml** - Row of pills: `YtmPill | VolumePill | BatteryPill`
 
 ### Pill interactions
@@ -198,7 +202,7 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 |--------|-------|---------|
 | `kwin-desktop.py` | no args → print current desktop number; `<n>` → switch | KWin VirtualDesktopManager over DBus (**not used under Hyprland**) |
 | `kwin-windows.py` | no args → print JSON window list; `<win_id>` → focus | KWin WindowsRunner + `icons.json` enrichment (Plasma only) |
-| `hypr-windows.py` | no args → print JSON window list | `hyprctl clients -j` + `icons.json` enrichment (Hyprland only; focusing happens in QML) |
+| `hypr-windows.py` | no args → print JSON window list | `hyprctl clients -j` + `icons.json` enrichment (Hyprland only; currently unused, WindowMenu is off under Hyprland) |
 | `window_icons.py` | imported, not run | shared `icons.json` loading, class → icon / display name lookup, blacklist |
 | `app-volumes.py` | prints JSON array of `{id, name, volume}` | per-app PulseAudio/PipeWire streams |
 | `save-icons-config.py` | `<app_id> <icon> <display_name>` | writes to `icons.json` |

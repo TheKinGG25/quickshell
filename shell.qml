@@ -196,7 +196,7 @@ ShellRoot {
     }
 
     // Current desktop number for Left.qml under KWin (scripts/kwin-desktop.py prints e.g. "3").
-    // Hyprland does not need this: it pushes workspace changes as events (see hyprWorkspaceId).
+    // Hyprland does not need this: grid.lua writes hypr-grid.json on every change (see hyprGrid).
     Process {
         id: desktopProcess
         command: ["python3", scriptsDir + "/kwin-desktop.py"]
@@ -427,23 +427,27 @@ ShellRoot {
         }
     }
 
-    // Hyprland reports the focused workspace over its event socket, so this needs no timer.
-    // Workspace ids are 1-based, like Plasma's desktop numbers, so Left.qml needs no changes.
-    readonly property int hyprWorkspaceId: hyprland && Hyprland.focusedWorkspace
-                                           ? Hyprland.focusedWorkspace.id : 0
-    onHyprWorkspaceIdChanged: if (hyprWorkspaceId > 0) currentDesktop = hyprWorkspaceId
-
-    // Which workspaces exist. Hyprland creates them on demand, so 1..desktopCount is only a
-    // guess there; under KWin every desktop in that range exists.
-    readonly property var hyprWorkspaceIds: {
-        if (!hyprland) return []
-        var ids = []
-        var ws = Hyprland.workspaces.values
-        for (var i = 0; i < ws.length; i++) ids.push(ws[i].id)
-        return ids
+    // Hyprland runs a 2D workspace grid (~/.config/hypr/grid.lua): [n,m], n = 1..6 switched on
+    // every monitor at once, m per monitor. grid.lua rewrites this file on every change:
+    // {"n": 2, "screens": {"eDP-2": [m for n = 1..6], "HDMI-A-1": [...]}}. No timer needed.
+    property var hyprGrid: ({ n: 1, screens: {} })
+    FileView {
+        path: shellRoot.hyprland ? Quickshell.env("XDG_RUNTIME_DIR") + "/hypr-grid.json" : ""
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                var g = JSON.parse(text())
+                if (g && g.screens) shellRoot.hyprGrid = g
+            } catch (e) {}   // read mid-write; the next change event brings the whole file
+        }
     }
-    function desktopExists(n) {
-        return !hyprland || hyprWorkspaceIds.indexOf(n) !== -1
+    onHyprGridChanged: if (hyprland) currentDesktop = hyprGrid.n
+
+    // The m shown as [n,m] on a screen's bar: current m for the active n, last visited for the rest
+    function gridM(screenName, n) {
+        var ms = hyprGrid.screens[screenName]
+        return ms && ms[n - 1] ? ms[n - 1] : 1
     }
 
     // Re-read the window list now (EditDialogWindow calls this after saving an icon / name)
@@ -472,10 +476,10 @@ ShellRoot {
     function switchDesktop(n) {
         currentDesktop = n                  // highlight at once, the compositor confirms it
         if (hyprland) {
-            // Quickshell sends the string as `return hl.dispatch(<string>)`. A Hyprland with a Lua
-            // config (0.56 here) wants a dispatcher object, so a bare "workspace 3" is a Lua syntax
-            // error; older, non-Lua ones take the plain string. Hyprland.usingLua says which.
-            if (Hyprland.usingLua) Hyprland.dispatch("hl.dsp.focus{workspace=\"" + n + "\"}")
+            // Quickshell sends the string as `return hl.dispatch(<string>)`. With the Lua config
+            // (0.56 here) hl.dispatch also takes a function, so this calls grid.lua, which moves
+            // every monitor to n at its remembered m. Older, non-Lua ones take the plain string.
+            if (Hyprland.usingLua) Hyprland.dispatch("function() grid.switch_n(" + n + ") end")
             else Hyprland.dispatch("workspace " + n)
         } else {
             desktopSwitchProcess.command = ["python3", scriptsDir + "/kwin-desktop.py", String(n)]

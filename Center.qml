@@ -1,6 +1,6 @@
 // Center.qml - clock in the middle of the bar.
 // A small ring fills up over each 12h half of the day (AM / PM color), then the time and date.
-// Left click: WindowMenu. Middle click: PowerMenu.
+// Left click: WindowMenu (KWin only, see the handler). Middle click: PowerMenu.
 
 import QtQuick
 import QtQuick.Layouts
@@ -30,7 +30,8 @@ MouseArea {
     onClicked: (mouse) => {
         if (mouse.button === Qt.MiddleButton) {
             root.activePowerScreen = (root.activePowerScreen === screen ? null : screen)
-        } else if (mouse.button === Qt.LeftButton) {
+        } else if (mouse.button === Qt.LeftButton && !root.hyprland) {
+            // WindowMenu groups windows by desktop number, which the Hyprland grid ids are not
             root.activeWindowScreen = (root.activeWindowScreen === screen ? null : screen)
         }
     }
