@@ -655,4 +655,19 @@ PanelWindow {
             }
         }
     }
+
+    // Shows the hover areas while root.debugPopups is on. The panel window is bigger than these,
+    // but `mask` means only these two regions take the mouse, so only these keep the player open.
+    HoverDebug {
+        x: belowBarZone.x; y: belowBarZone.y
+        width: belowBarZone.width; height: belowBarZone.height
+        root: ytmPanel.root
+        label: "player"
+    }
+    HoverDebug {
+        x: pillZone.x; y: pillZone.y
+        width: pillZone.width; height: pillZone.height
+        root: ytmPanel.root
+        label: "pill"
+    }
 }

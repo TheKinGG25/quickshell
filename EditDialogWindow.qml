@@ -68,9 +68,9 @@ Window {
         interval: editDialogWindow.refreshDelayMs
         running: false
         onTriggered: {
-            if (root && root.windowsProcess) {
-                root.windowsProcess.running = true
-            }
+            // windowsProcess is an id inside shell.qml, not a property on root, so the old
+            // `root.windowsProcess` test was always false and this never refreshed anything
+            if (root) root.refreshWindows()
         }
     }
 

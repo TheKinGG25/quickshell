@@ -89,4 +89,11 @@ PanelWindow {
             color: cpControl.hovered || cpControl.isFocused ? "#313244" : "transparent"
         }
     }
+
+    // Shows the hover area while root.debugPopups is on
+    HoverDebug {
+        anchors.fill: parent
+        root: clipboardWindow.root
+        label: "clipboard"
+    }
 }

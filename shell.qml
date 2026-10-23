@@ -46,11 +46,17 @@ ShellRoot {
     property color colGreen: "#a6e3a1"
     property color colRosewater: "#f5e0dc"  // pressed slider handle
 
+    // ── Debug ── true draws a translucent overlay on every popup showing the area the mouse
+    // can stay in without the popup closing (components/HoverDebug.qml)
+    property bool debugPopups: false
+
     // ── Compositor ── Plasma (KWin) and Hyprland handle workspaces completely differently, so
     // anything workspace-related asks `hyprland` first. HYPRLAND_INSTANCE_SIGNATURE is set by
     // Hyprland itself for every client, so it is the reliable test.
     readonly property bool hyprland: Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") ? true : false
     readonly property string compositor: hyprland ? "Hyprland" : "KWin"
+    // Both scripts print the same {id, title, app, icon, resourceClass, desktop} shape
+    readonly property string windowsScript: scriptsDir + (hyprland ? "/hypr-windows.py" : "/kwin-windows.py")
 
     // ── Paths ──
     property string homeDir: Quickshell.env("HOME")
@@ -147,7 +153,7 @@ ShellRoot {
     // Window list for WindowMenu (scripts/kwin-windows.py prints a JSON array)
     Process {
         id: windowsProcess
-        command: ["python3", scriptsDir + "/kwin-windows.py"]
+        command: ["python3", windowsScript]
         stdout: SplitParser {
             onRead: data => {
                 try {
@@ -426,6 +432,41 @@ ShellRoot {
     readonly property int hyprWorkspaceId: hyprland && Hyprland.focusedWorkspace
                                            ? Hyprland.focusedWorkspace.id : 0
     onHyprWorkspaceIdChanged: if (hyprWorkspaceId > 0) currentDesktop = hyprWorkspaceId
+
+    // Which workspaces exist. Hyprland creates them on demand, so 1..desktopCount is only a
+    // guess there; under KWin every desktop in that range exists.
+    readonly property var hyprWorkspaceIds: {
+        if (!hyprland) return []
+        var ids = []
+        var ws = Hyprland.workspaces.values
+        for (var i = 0; i < ws.length; i++) ids.push(ws[i].id)
+        return ids
+    }
+    function desktopExists(n) {
+        return !hyprland || hyprWorkspaceIds.indexOf(n) !== -1
+    }
+
+    // Re-read the window list now (EditDialogWindow calls this after saving an icon / name)
+    function refreshWindows() {
+        windowsProcess.running = true
+    }
+
+    // Focus a window from WindowMenu. `id` is whatever the window-list script put in `id`:
+    // a krunner id under KWin, a window address under Hyprland.
+    function focusWindow(id) {
+        if (!id) return
+        if (hyprland) {
+            // Same Lua-vs-plain split as switchDesktop()
+            if (Hyprland.usingLua) Hyprland.dispatch("hl.dsp.focus{window=\"address:" + id + "\"}")
+            else Hyprland.dispatch("focuswindow address:" + id)
+        } else {
+            focusWindowProcess.command = ["python3", scriptsDir + "/kwin-windows.py", id]
+            focusWindowProcess.running = false
+            focusWindowProcess.running = true
+        }
+    }
+
+    Process { id: focusWindowProcess }
 
     // Switch desktop / workspace. Left.qml calls this and does not care which compositor is running.
     function switchDesktop(n) {

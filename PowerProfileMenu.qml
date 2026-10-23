@@ -116,4 +116,11 @@ PanelWindow {
 
     // Runs `powerprofilesctl set <profile>` for whichever row was clicked
     Process { id: setProfileProc }
+
+    // Shows the hover area while root.debugPopups is on
+    HoverDebug {
+        anchors.fill: parent
+        root: profileWindow.root
+        label: "power profile"
+    }
 }

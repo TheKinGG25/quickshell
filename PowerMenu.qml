@@ -116,4 +116,11 @@ PanelWindow {
 
     // Runs the command of whichever button was clicked
     Process { id: actionProc }
+
+    // Shows the hover area while root.debugPopups is on
+    HoverDebug {
+        anchors.fill: parent
+        root: powerWindow.root
+        label: "power"
+    }
 }

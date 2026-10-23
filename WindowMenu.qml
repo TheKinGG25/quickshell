@@ -1,7 +1,8 @@
 // WindowMenu.qml - open-window switcher, centered under the bar. Opened by left-clicking the clock.
 // Top: one tab per desktop (count: root.desktopCount). Below: windows on the selected desktop.
 // Click a window to focus it. Hover a window + F2 to edit its icon / name (EditDialogWindow.qml).
-// Window list comes from root.windows (scripts/kwin-windows.py + scripts/icons.json).
+// Window list comes from root.windows (root.windowsScript: kwin-windows.py or
+// hypr-windows.py, both using scripts/icons.json). Clicking calls root.focusWindow().
 
 import Quickshell
 import Quickshell.Wayland
@@ -225,8 +226,7 @@ PanelWindow {
                                 onClicked: (mouse) => {
                                     if (mouse.button === Qt.LeftButton) {
                                         if (modelData && modelData.id) {
-                                            runProcess.command = ["python3", root.scriptsDir + "/kwin-windows.py", modelData.id]
-                                            runProcess.running = true
+                                            root.focusWindow(modelData.id)   // shell.qml picks the compositor
                                             root.activeWindowScreen = null
                                         }
                                     }
@@ -248,7 +248,6 @@ PanelWindow {
         }
     }
 
-    Process { id: runProcess }
     Process { id: saveConfigProcess }
 
     EditDialogWindow {
@@ -256,5 +255,12 @@ PanelWindow {
         root: windowMenu.root
         screenRef: windowMenu.screen
         parentWindow: windowMenu
+    }
+
+    // Shows the hover area while root.debugPopups is on
+    HoverDebug {
+        anchors.fill: parent
+        root: windowMenu.root
+        label: "windows"
     }
 }

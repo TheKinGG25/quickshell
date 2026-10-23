@@ -37,7 +37,7 @@ Rules the code follows:
 |------|------|----------------|
 | `shell.qml` | `ShellRoot` | Global state, all polling processes and timers, instantiates every window per screen |
 | `Bar.qml` | `PanelWindow` (Top layer, anchored top/left/right) | 30px translucent strip holding Left / Center / Right. Publishes its own screen's YtmPill position (`setYtmPillGeom`) for YtmPanel placement |
-| `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, active one white/bold. Click → `root.switchDesktop(n)`, which branches on the compositor (optimistically sets `currentDesktop`) |
+| `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, active one white/bold, nonexistent Hyprland workspaces dimmed. Click → `root.switchDesktop(n)`, which branches on the compositor (optimistically sets `currentDesktop`) |
 | `Center.qml` | `MouseArea` | Canvas arc showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu, middle → PowerMenu |
 | `Right.qml` | `Row` | `YtmPill`, `VolumePill`, `BatteryPill` |
 | `YtmPill.qml` | `Rectangle` 280x22 | Thumbnail, title, artist, 2px progress line. Hidden unless `ytmAvailable`. Click toggles YtmPanel |
@@ -68,7 +68,9 @@ Shared building blocks, imported with `import "components"`.
 | Script | Called by | In → Out |
 |--------|-----------|----------|
 | `kwin-desktop.py` | `shell.qml` (200ms, KWin only), `switchDesktop()` | none → `3`; `<n>` → switches desktop |
-| `kwin-windows.py` | `shell.qml` (500ms while WindowMenu open), `WindowMenu.qml` | none → JSON window list enriched from `icons.json`; `<id>` → focus window |
+| `kwin-windows.py` | `shell.qml` (500ms while WindowMenu open, KWin only), `focusWindow()` | none → JSON window list enriched from `icons.json`; `<id>` → focus window |
+| `hypr-windows.py` | `shell.qml` (500ms while WindowMenu open, Hyprland only) | `hyprctl clients -j` → the same JSON window list |
+| `window_icons.py` | imported by both window scripts | shared `icons.json` lookup and blacklist |
 | `app-volumes.py` | `shell.qml` (1s) | → `[{id, name, volume}]` parsed from `pactl list sink-inputs` |
 | `save-icons-config.py` | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
 | `EditDialogWindow.qml` | `<app_id> <icon> <name>` → updates `icons.json` |

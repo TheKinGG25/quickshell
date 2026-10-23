@@ -6,28 +6,19 @@ kwin-windows.py - list open windows for WindowMenu, or focus one.
   kwin-windows.py <win_id>   -> focuses that window, called by WindowMenu on click
 
 Windows come from KWin's krunner "WindowsRunner". Each one's resourceClass is looked up in
-icons.json (CONFIG_FILE) to override its icon / display name or hide it (blacklist).
+icons.json to override its icon / display name or hide it (blacklist), through
+window_icons.py, which hypr-windows.py shares.
 To change how an app shows up, edit icons.json or use F2 in WindowMenu.
 """
 import subprocess
 import re
 import json
 import sys
-import os
+
+from window_icons import load_icon_config, lookup, pretty_class
 
 # ── Tweakables ──
-CONFIG_FILE = "icons.json"      # next to this script
 SKIP_ID_PREFIX = "8_"           # krunner ids starting with this are desktop entries, not windows
-
-# Load icon mappings, display names, and blacklist from config
-def load_icon_config():
-    config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
-    try:
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-            return config.get("iconMappings", {}), config.get("blacklist", [])
-    except:
-        return {}, []
 
 icon_mappings, blacklist = load_icon_config()
 
@@ -135,38 +126,15 @@ def get_windows():
         if not icon_name and icon and icon != "wayland":
             icon_name = icon
             
-        # Clean up app name formatting for display
-        display_name = app_name
-        if display_name:
-            # Convert "org.kde.dolphin" to "Dolphin" or keep "Code" as is
-            if "." in display_name:
-                display_name = display_name.split(".")[-1]  # Get the last part
-            if display_name and display_name.islower():
-                display_name = display_name.capitalize()
-
+        # Clean up app name formatting for display: "org.kde.dolphin" -> "Dolphin"
+        display_name = pretty_class(app_name)
         if not display_name:
             display_name = win_text
 
-        # Try to find mapped icon and display name from config
-        mapped_icon = None
-        mapped_display_name = None
-        
-        # Check keys in order of likelihood: app_name (original class), then others
-        # This ensures we find the saved config under the app's resource class
-        for key in [app_name, icon_name, display_name]:
-            if key and key in icon_mappings:
-                mapping = icon_mappings[key]
-                # Handle both old format (string) and new format (dict)
-                if isinstance(mapping, dict):
-                    if not mapped_icon and "icon" in mapping:
-                        mapped_icon = mapping["icon"]
-                    if not mapped_display_name and "displayName" in mapping:
-                        mapped_display_name = mapping["displayName"]
-                elif isinstance(mapping, str) and not mapped_icon:
-                    mapped_icon = mapping
-                if mapped_icon and mapped_display_name:
-                    break
-        
+        # Keys in order of likelihood: app_name (the original class) first, so a config saved
+        # under the app's resource class wins
+        mapped_icon, mapped_display_name = lookup(icon_mappings, [app_name, icon_name, display_name])
+
         final_icon = mapped_icon if mapped_icon else icon_name
         final_display_name = mapped_display_name if mapped_display_name else display_name
 

@@ -23,6 +23,9 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Clock format, ring colors | `Center.qml` → Tweakables |
 | Desktop number colors / spacing | `Left.qml` → Tweakables |
 | How a workspace switch is sent | `shell.qml` → `switchDesktop()` (branches on `root.hyprland`) |
+| How a window is focused | `shell.qml` → `focusWindow()` (branches on `root.hyprland`) |
+| Color of a workspace that does not exist yet (Hyprland) | `Left.qml` → `missingColor` |
+| See each popup's hover area on screen | `shell.qml` → `debugPopups: true` |
 | Pill order | `Right.qml` |
 | A pill's colors, icons, scroll step | `VolumePill.qml` / `BatteryPill.qml` / `YtmPill.qml` → Tweakables |
 | Layout of the volume / battery pills (padding, min width, fonts) | `components/ValuePill.qml` |
@@ -77,7 +80,8 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 `shell.qml` is the single root (`ShellRoot`, id `shellRoot`) that owns **all global state** as properties:
 
 - Constants: `fontFamily`, `fontSize`, `barHeight`
-- Compositor: `hyprland` (bool) and `compositor` ("Hyprland" / "KWin"), plus `switchDesktop(n)` and `hyprWorkspaceId`
+- Compositor: `hyprland` (bool), `compositor` ("Hyprland" / "KWin"), `windowsScript`, `hyprWorkspaceId`, `hyprWorkspaceIds`, plus `switchDesktop(n)`, `focusWindow(id)`, `desktopExists(n)`, `refreshWindows()`
+- Debug: `debugPopups` (draws each popup's hover area)
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`, `ytmVolume` (0-100), `ytmQueue[]`; functions `ytmCommand(cmd, body)`, `ytmReadVolume()`, `ytmSetVolume(v)`, `ytmNudgeVolume(up)`, `ytmFetchQueue()`
 - Clipboard: `clipboardIndex`, `clipboardRunning` (fed by `clipboard.py`, work in progress)
@@ -93,7 +97,7 @@ Polling cadence (all in `shell.qml`):
 | event | `pactl subscribe` (long-running): any sink/server change triggers `wpctl get-volume` + bluetooth sink check, debounced 30 ms |
 | 2 s | fallback volume + sink read, battery (first `/sys/class/power_supply/BAT*`), restart `pactl subscribe` if it died |
 | 200 ms | `kwin-desktop.py` (current desktop) - **KWin only**, Hyprland pushes events instead |
-| 500 ms | `kwin-windows.py` while WindowMenu is open |
+| 500 ms | `root.windowsScript` (`kwin-windows.py` or `hypr-windows.py`) while WindowMenu is open |
 | 1 s | `app-volumes.py` (skipped while VolumeSlider is open), `powerprofilesctl get` |
 | 500 ms (2 s idle) | music API `GET /track/state` (+ `GET /track` on track change) |
 
@@ -126,6 +130,9 @@ everything workspace-related branches on it:
 |---|---|---|
 | Current desktop | `kwin-desktop.py` polled every `desktopPollMs` | `Hyprland.focusedWorkspace.id` → `hyprWorkspaceId`, pushed as events, no polling (the poll timer is off) |
 | Switching | `kwin-desktop.py <n>` | `Hyprland.dispatch(...)` |
+| Which workspaces exist | all of 1..`desktopCount` | `Hyprland.workspaces` → `hyprWorkspaceIds`; `desktopExists(n)` is false for the rest and `Left.qml` dims them |
+| Window list | `kwin-windows.py` | `hypr-windows.py` (`hyprctl clients -j`), same JSON shape |
+| Focusing a window | `kwin-windows.py <id>` | `Hyprland.dispatch(...)` with the window address |
 
 Hyprland workspace ids are 1-based like Plasma's desktop numbers, so `Left.qml` needs no branch of
 its own; it just calls `root.switchDesktop(n)`.
@@ -136,14 +143,19 @@ its own; it just calls `root.switchDesktop(n)`.
 `hl.dsp.focus{workspace="3"}`; older non-Lua Hyprland takes the plain `"workspace 3"`.
 `switchDesktop()` handles both.
 
-Still KWin-only: **WindowMenu** (`kwin-windows.py` returns `[]` under Hyprland) and the
-`desktopCount` of 6, since Hyprland creates workspaces on demand. See `TODO.md`.
+Both window-list scripts share `scripts/window_icons.py` for the `icons.json` lookup, so F2
+editing works the same on either compositor. Note the class names differ between them (KWin says
+`code`, Hyprland says `com.microsoft.VSCode`), so a mapping saved on one session does not
+necessarily apply on the other; `icons.json` just gains an entry per class.
+
+`desktopCount` is still a fixed 6 on both; on Hyprland the ones that do not exist are dimmed
+rather than hidden, and clicking one creates it.
 
 ### Bar layout
 
 `Bar.qml` → `Left | Center (centered) | Right`
 
-- **Left.qml** - `root.desktopCount` desktop / workspace numbers; clicking calls `root.switchDesktop(n)`, which picks the right mechanism for the running compositor
+- **Left.qml** - `root.desktopCount` desktop / workspace numbers; clicking calls `root.switchDesktop(n)`, which picks the right mechanism for the running compositor. On Hyprland, workspaces that do not exist yet are dimmed (`missingColor`)
 - **Center.qml** - Clock with 12h arc indicator (blue AM / peach PM); left-click opens WindowMenu, middle-click opens PowerMenu
 - **Right.qml** - Row of pills: `YtmPill | VolumePill | BatteryPill`
 
@@ -165,6 +177,7 @@ Still KWin-only: **WindowMenu** (`kwin-windows.py` returns `[]` under Hyprland) 
 | `ValuePill.qml` | colored pill, value text left, icon right | VolumePill, BatteryPill |
 | `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
 | `DialogButton.qml` | flat button with hover color | EditDialogWindow |
+| `HoverDebug.qml` | translucent outline of a popup's hover area, shown while `root.debugPopups` | every popup |
 
 ### Popups
 
@@ -184,7 +197,9 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 | Script | Usage | Purpose |
 |--------|-------|---------|
 | `kwin-desktop.py` | no args → print current desktop number; `<n>` → switch | KWin VirtualDesktopManager over DBus (**not used under Hyprland**) |
-| `kwin-windows.py` | no args → print JSON window list; `<win_id>` → focus | KWin WindowsRunner + `icons.json` enrichment |
+| `kwin-windows.py` | no args → print JSON window list; `<win_id>` → focus | KWin WindowsRunner + `icons.json` enrichment (Plasma only) |
+| `hypr-windows.py` | no args → print JSON window list | `hyprctl clients -j` + `icons.json` enrichment (Hyprland only; focusing happens in QML) |
+| `window_icons.py` | imported, not run | shared `icons.json` loading, class → icon / display name lookup, blacklist |
 | `app-volumes.py` | prints JSON array of `{id, name, volume}` | per-app PulseAudio/PipeWire streams |
 | `save-icons-config.py` | `<app_id> <icon> <display_name>` | writes to `icons.json` |
 | `add-to-blacklist.py` | `<app_id>` | adds to `icons.json` blacklist |

@@ -132,4 +132,11 @@ PanelWindow {
             }
         }
     }
+
+    // Shows the hover area while root.debugPopups is on
+    HoverDebug {
+        anchors.fill: parent
+        root: volumeWindow.root
+        label: "volume"
+    }
 }
