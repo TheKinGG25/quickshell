@@ -1,33 +1,57 @@
 # Architecture
 
-A QuickShell (QML) top bar for KDE Plasma on Wayland. No build step: `quickshell` interprets the QML at launch and shells out to small Python/Bash helpers for system data.
+A QuickShell (QML) top bar for Wayland, running on both KDE Plasma (KWin) and Hyprland. No build
+step: `quickshell` interprets the QML at launch, reads what it can over IPC, and shells out to
+small Python / Bash helpers for the rest.
 
 ## 1. Big picture
 
 ```
-                    ┌───────────────────────────── shell.qml (ShellRoot) ─────────────────────────────┐
-                    │  global state properties     pactl events + timers (200ms/500ms/1s/2s)          │
- system tools  ───► │  Process + SplitParser  ───► currentDesktop, volume*, battery*, powerProfile,  │
- (qdbus6, wpctl,    │                              appVolumes[], windows[], ytm*                      │
-  pactl, cat ...)   │  popup flags: active{Volume,Power,PowerProfile,Window,Ytm}Screen               │
-                    └──────────────┬──────────────────────────────────────────────────────────────────┘
-                                   │ root: shellRoot   (passed to every component)
-          Variants { model: Quickshell.screens } → one copy of each window per monitor
-                                   │
-   ┌──────────────┬──────────────┬─┴────────────┬────────────────┬──────────────────┬─────────────┐
-   Bar         VolumeSlider   PowerMenu     WindowMenu     PowerProfileMenu      YtmPanel     Clipboard
-   │                                            └─ EditDialogWindow
-   ├─ Left    (desktops 1-6)
+   system tools            compositor                 YouTube Music Desktop 2
+   (wpctl, pactl,          KWin: qdbus6 scripts       HTTP API on 127.0.0.1:13091
+    sysfs, bluetoothctl)   Hyprland: Quickshell.Hyprland (events) + hyprctl
+            │                        │                          │
+            ▼                        ▼                          ▼
+   ┌──────────────────────── shell.qml (ShellRoot, id shellRoot) ────────────────────────┐
+   │  Process + SplitParser, XMLHttpRequest, Hyprland bindings                           │
+   │                                                                                     │
+   │  state:   currentDesktop, volume*, battery*, powerProfile, appVolumes[], windows[], │
+   │           ytm* (title, art, progress, volume, queue[]), clipboard*                  │
+   │  facts:   hyprland / compositor, windowsScript, ytmPillGeom (per monitor)           │
+   │  actions: switchDesktop(n), focusWindow(id), refreshWindows(), ytmCommand(),        │
+   │           ytmSetVolume(), ytmFetchQueue()                                           │
+   │  popups:  active{Volume,Power,PowerProfile,Window,Ytm}Screen, debugPopups           │
+   └───────────────────────────────────┬─────────────────────────────────────────────────┘
+                                       │ root: shellRoot   (passed to every component)
+            Variants { model: Quickshell.screens } → one copy of each window per monitor
+                                       │
+   ┌──────────────┬──────────────┬─────┴────────┬──────────────────┬──────────┬───────────┐
+   Bar         VolumeSlider   PowerMenu     PowerProfileMenu   WindowMenu   YtmPanel   Clipboard
+   │                                                            └─ EditDialogWindow
+   ├─ Left    (desktop / workspace numbers)
    ├─ Center  (clock + arc)
    └─ Right   (YtmPill | VolumePill | BatteryPill)
 ```
 
 Rules the code follows:
 
-1. **One source of truth.** All shared state lives on `ShellRoot`. Components only read it and write the `active*Screen` flags.
-2. **Pull, not push.** Every value is polled: a `Timer` sets `process.running = true`, the process prints to stdout, a `SplitParser.onRead` parses it and assigns a property. QML bindings do the rest.
-3. **Per-screen windows, global flags.** Each window exists on every screen and shows itself only when `root.activeXScreen === screen`. That way a popup opens on the monitor whose bar was clicked.
-4. **Side effects go through `Process`.** Clicks build a command array (e.g. `wpctl set-mute ...`, `kwin-desktop.py 3`) and start a `Process` owned by the component.
+1. **One source of truth.** All shared state lives on `ShellRoot`. Components read it and write
+   only the `active*Screen` flags. Anything used by more than one file belongs there.
+2. **Poll what cannot push.** Most system values are polled: a `Timer` sets `process.running =
+   true`, the process prints to stdout, a `SplitParser.onRead` assigns a property, bindings do the
+   rest. Three sources push instead and have no timer: `pactl subscribe` (audio), Hyprland's event
+   socket through `Quickshell.Hyprland` (workspaces), and nothing else. The music API is polled
+   over HTTP rather than by a process.
+3. **Per-screen windows, global flags.** Each window exists on every screen and shows itself only
+   when `root.activeXScreen === screen`, so a popup opens on the monitor whose bar was clicked.
+   A value that differs per monitor must be keyed by `screen.name` (see `ytmPillGeom`), because a
+   single property would be overwritten by every screen's copy of the window that writes it.
+4. **Compositor differences live in `shell.qml`.** `root.hyprland` decides, and the rest of the
+   tree calls one function: `switchDesktop()`, `focusWindow()`, `windowsScript`. No other file
+   branches on the compositor.
+5. **Side effects go through `Process` or an API call.** Component-local actions (mute, power
+   profile, bluetooth) own their own `Process`; anything compositor-specific or shared goes through
+   a `shell.qml` function.
 
 ## 2. Files
 
@@ -35,21 +59,21 @@ Rules the code follows:
 
 | File | Kind | Responsibility |
 |------|------|----------------|
-| `shell.qml` | `ShellRoot` | Global state, all polling processes and timers, instantiates every window per screen |
-| `Bar.qml` | `PanelWindow` (Top layer, anchored top/left/right) | 30px translucent strip holding Left / Center / Right. Publishes its own screen's YtmPill position (`setYtmPillGeom`) for YtmPanel placement |
-| `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, active one white/bold, nonexistent Hyprland workspaces dimmed. Click → `root.switchDesktop(n)`, which branches on the compositor (optimistically sets `currentDesktop`) |
-| `Center.qml` | `MouseArea` | Canvas arc showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu, middle → PowerMenu |
+| `shell.qml` | `ShellRoot` | Global state, compositor detection, every poller and timer, the music API client, instantiates each window per screen |
+| `Bar.qml` | `PanelWindow` (Top layer, top/left/right) | `root.barHeight` (30px) translucent strip holding Left / Center / Right. Publishes its own screen's YtmPill position through `setYtmPillGeom()` so YtmPanel knows where to grow from |
+| `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, current one white and bold, Hyprland workspaces that do not exist yet dimmed (`missingColor`). Click → `root.switchDesktop(n)` |
+| `Center.qml` | `MouseArea` | Canvas ring showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu, middle → PowerMenu |
 | `Right.qml` | `Row` | `YtmPill`, `VolumePill`, `BatteryPill` |
-| `YtmPill.qml` | `Rectangle` 280x22 | Thumbnail, title, artist, 2px progress line. Hidden unless `ytmAvailable`. Click toggles YtmPanel |
-| `YtmPanel.qml` | `PanelWindow` (Overlay) | Drop-down card under the pill: 180px art, title, artist, `m:ss` labels, progress bar. Height animates 0 → 290 on open. Click anywhere closes |
-| `VolumePill.qml` | `Rectangle` | Volume number + icon. Color: grey muted / pink bluetooth / blue speakers. Left: slider, middle: BT toggle, right: mute, wheel: ±1% |
+| `YtmPill.qml` | `Rectangle`, `ytmWidth` x `pillHeight` (280x22) | Cover thumbnail, title, artist, 2px progress line. Hidden unless `ytmAvailable`, and transparent while YtmPanel is open on this screen. Click toggles the panel, scroll changes the app's volume |
+| `YtmPanel.qml` | `PanelWindow` (Overlay, starts at the screen top with `ExclusionMode.Ignore` + a `mask`) | The music player. One `morph` value (0..1) grows the pill into a 280x448 card centered on it, crossfading a copy of the pill into the content; a 56px side card of buttons sits below the bar beside it. Cover flips to the queue, side card flips to a vertical volume slider, blurred cover art behind both |
+| `VolumePill.qml` | `ValuePill` | Volume number + icon. Color: grey muted / pink bluetooth / blue speakers. Left: VolumeSlider, middle: bluetooth toggle, right: mute, wheel: ±`volumeStep` |
 | `VolumeSlider.qml` | `PanelWindow` (Overlay, top-right) | Master slider (`wpctl`) and one slider per app stream (`pactl`) |
-| `BatteryPill.qml` | `Rectangle` | Percent + arrow (↑ charging, ↓ discharging, - plugged but not charging). Color steps every 20%. Middle click → PowerProfileMenu |
+| `BatteryPill.qml` | `ValuePill` | Percent + arrow (↑ charging, ↓ discharging, - plugged but not charging). Color steps every 20%. Middle click → PowerProfileMenu |
 | `PowerProfileMenu.qml` | `PanelWindow` (Overlay, top-right) | One row per entry in its `profiles` list, click runs `powerprofilesctl set <profile>` |
 | `PowerMenu.qml` | `PanelWindow` (Overlay, centered) | One button per entry in its `buttons` list (icon, label, color, command): shutdown / restart / sleep / lock |
-| `WindowMenu.qml` | `PanelWindow` (Overlay, centered, keyboard OnDemand) | Desktop tabs (`root.desktopCount`) + list of windows on the selected desktop. Click focuses via `kwin-windows.py <id>`. F2 on hover opens EditDialogWindow. Closes 200ms after mouse leaves unless the dialog is open |
-| `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
-| `EditDialogWindow.qml` | `Window` | Edit icon + display name for a `resourceClass`, or blacklist it. Writes through `save-icons-config.py` / `add-to-blacklist.py` |
+| `WindowMenu.qml` | `PanelWindow` (Overlay, centered, keyboard OnDemand) | Desktop tabs (`root.desktopCount`) + the windows on the selected one, from `root.windows`. Click → `root.focusWindow(id)`. F2 on a hovered row opens EditDialogWindow. Closes 200ms after the mouse leaves, unless the dialog is open |
+| `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Three placeholder rows, the one at `root.clipboardIndex` highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
+| `EditDialogWindow.qml` | `Window` | Edit the icon and display name for a window class, or blacklist it. Writes through `save-icons-config.py` / `add-to-blacklist.py`, then calls `root.refreshWindows()` |
 
 ### Components (`components/`)
 
@@ -57,63 +81,96 @@ Shared building blocks, imported with `import "components"`.
 
 | File | What it is | Used by |
 |------|------------|---------|
-| `SliderTrack.qml` | "filled \| gap \| handle \| gap \| empty" bar for a `position` 0..1 | VolumeBarSlider, YtmPanel progress |
-| `VolumeBarSlider.qml` | 0..100 slider: SliderTrack background, thin handle, scroll wheel (`onMoved` on drag and scroll) | VolumeSlider (master + apps) |
-| `ValuePill.qml` | colored pill, value text left, icon right | VolumePill, BatteryPill |
-| `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
-| `DialogButton.qml` | flat button with hover color | EditDialogWindow |
+| `SliderTrack.qml` | "filled \| gap \| handle \| gap \| empty" bar for a `position` 0..1; `vertical` fills from the bottom | VolumeBarSlider (as its background), YtmPanel's volume slider |
+| `VolumeBarSlider.qml` | Slider (0..100 by default, any range) with a SliderTrack background, a thin handle and a scroll wheel; `onMoved` covers both drag and scroll | VolumeSlider (master + apps), YtmPanel seek bar |
+| `IconButton.qml` | Square button showing one Nerd Font `glyph`, with an `active` color and a state-layer hover / press | YtmPanel controls and side card |
+| `ValuePill.qml` | Colored pill, value text left, icon right | VolumePill, BatteryPill |
+| `PopupCard.qml` | Dark rounded card with a border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
+| `DialogButton.qml` | Flat button with a hover color | EditDialogWindow |
+| `HoverDebug.qml` | Translucent outline of a popup's hover area, drawn only while `root.debugPopups` | every popup |
 
-### Scripts
+### Scripts (`scripts/`)
+
+Each prints JSON or a plain value on stdout, which QML parses in a `SplitParser`.
 
 | Script | Called by | In → Out |
 |--------|-----------|----------|
 | `kwin-desktop.py` | `shell.qml` (200ms, KWin only), `switchDesktop()` | none → `3`; `<n>` → switches desktop |
-| `kwin-windows.py` | `shell.qml` (500ms while WindowMenu open, KWin only), `focusWindow()` | none → JSON window list enriched from `icons.json`; `<id>` → focus window |
-| `hypr-windows.py` | `shell.qml` (500ms while WindowMenu open, Hyprland only) | `hyprctl clients -j` → the same JSON window list |
-| `window_icons.py` | imported by both window scripts | shared `icons.json` lookup and blacklist |
+| `kwin-windows.py` | `shell.qml` (500ms while WindowMenu is open, KWin only), `focusWindow()` | none → JSON window list enriched from `icons.json`; `<id>` → focus that window |
+| `hypr-windows.py` | `shell.qml` (500ms while WindowMenu is open, Hyprland only) | `hyprctl clients -j` → the same JSON window list (focusing is done in QML) |
+| `window_icons.py` | imported by both window scripts | shared `icons.json` loading, class → icon / display name lookup, blacklist |
 | `app-volumes.py` | `shell.qml` (1s) | → `[{id, name, volume}]` parsed from `pactl list sink-inputs` |
-| `save-icons-config.py` | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
-| `EditDialogWindow.qml` | `<app_id> <icon> <name>` → updates `icons.json` |
-| `add-to-blacklist.py` | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Shows 3 placeholder rows ("Copied Item n"), the row at `root.clipboardIndex` is highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
-| `EditDialogWindow.qml` | `<app_id>` → appends to blacklist |
-| `clipboard.py` | `shell.qml` `clipboardProcess` (never started yet) | Reads the first keyboard via `evdev`; prints `{running, index}` on Up/Down, prints `running: false` and exits on Enter |
-| `volume-toggle-bt.sh` + `bt-config.sh` | `VolumePill.qml` | connect/disconnect `HEADPHONE_MAC` |
-| `icons.json` | `kwin-windows.py` | `iconMappings` keyed by `resourceClass`, plus `blacklist` |
+| `save-icons-config.py` | `EditDialogWindow.qml` | `<app_id> <icon> <name>` → updates `icons.json` |
+| `add-to-blacklist.py` | `EditDialogWindow.qml` | `<app_id>` → appends to the `icons.json` blacklist |
+| `clipboard.py` | `shell.qml` `clipboardProcess` (never started yet) | Reads the first keyboard via `evdev`; prints `{running, index}` on Up / Down, prints `running: false` and exits on Enter |
+| `volume-toggle-bt.sh` + `bt-config.sh` | `VolumePill.qml` | connect / disconnect `HEADPHONE_MAC` |
+| `icons.json` | `window_icons.py` | `iconMappings` keyed by the window class, plus `blacklist` |
 
-## 3. Polling schedule
+Script paths all come from `root.scriptsDir` (`Quickshell.env("HOME") + "/.config/quickshell/scripts"`),
+so the launch directory does not matter.
 
-| Every | Process | Property |
-|-------|---------|----------|
+## 3. Compositor support
+
+`shell.qml` sets `readonly property bool hyprland` from `Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE")`,
+which Hyprland exports to every client. Everything workspace- or window-related asks it:
+
+| | KWin (Plasma) | Hyprland |
+|---|---|---|
+| Current desktop | `kwin-desktop.py` polled every `desktopPollMs` | `Hyprland.focusedWorkspace.id`, pushed as events (the poll timer is off) |
+| Switching | `kwin-desktop.py <n>` | `Hyprland.dispatch(...)` |
+| Which workspaces exist | all of 1..`desktopCount` | `Hyprland.workspaces`; `desktopExists(n)` is false for the rest and Left.qml dims them |
+| Window list | `kwin-windows.py` | `hypr-windows.py`, same JSON shape |
+| Focusing a window | `kwin-windows.py <id>` | `Hyprland.dispatch(...)` with the window address |
+
+Hyprland's dispatch syntax depends on its config language. Quickshell sends the string as
+`return hl.dispatch(<string>)`, so with a Lua config (`Hyprland.usingLua`) a bare `"workspace 3"`
+is a Lua syntax error and `hl.dispatch` wants a dispatcher object: the call becomes
+`hl.dsp.focus{workspace="3"}`. Non-Lua Hyprland takes the plain string. Both `switchDesktop()` and
+`focusWindow()` handle the split.
+
+Window classes differ between the two (KWin reports `code`, Hyprland `com.microsoft.VSCode`), so an
+`icons.json` mapping saved in one session does not necessarily apply in the other; the file simply
+gains an entry per class.
+
+## 4. Polling and events
+
+| Every | Source | Property |
+|-------|--------|----------|
 | event | `pactl subscribe` (long-running). A `sink` or `server` event restarts a 30ms debounce timer that runs the two reads below | |
 | event + 2s | `wpctl get-volume @DEFAULT_AUDIO_SINK@` | `volumeLevel`, `volumeMuted` |
 | event + 2s | `wpctl inspect ... \| grep -c api.bluez5.address` | `headphonesActive` |
+| event | Hyprland event socket, through `Quickshell.Hyprland` | `currentDesktop`, `hyprWorkspaceIds` |
 | 2s | `sh -c` loop over `/sys/class/power_supply/BAT*`, first match: `capacity` then `status` | `batteryLevel`, `batteryStatus` |
-| 200ms | `kwin-desktop.py` (KWin only; under Hyprland the timer is off and `Hyprland.focusedWorkspace` drives `currentDesktop`) | `currentDesktop` |
-| 500ms | `kwin-windows.py` (only while WindowMenu open) | `windows` |
-| 1s | `app-volumes.py` (only while VolumeSlider closed) | `appVolumes` |
+| 200ms | `kwin-desktop.py` (KWin only) | `currentDesktop` |
+| 500ms | `root.windowsScript` (only while WindowMenu is open) | `windows` |
+| 1s | `app-volumes.py` (only while VolumeSlider is closed) | `appVolumes` |
 | 1s | `powerprofilesctl get` | `powerProfile` |
-| 500ms (2s idle) | `GET /track/state` (+ `GET /track` on change) on the music API | `ytm*` |
+| 500ms, 2s when unreachable | `GET /track/state` on the music API (+ `GET /track` when the track id changes) | `ytm*` |
+| 100ms | no process: moves `ytmProgressSeconds` forward locally between polls while playing | `ytmProgress*` |
 
-Paths: every script path is built from `root.scriptsDir` (`Quickshell.env("HOME") + "/.config/quickshell/scripts"`), and the music cache from `root.homeDir`. The 2s timer also restarts `pactl subscribe` if it exits.
+The 2s timer also restarts `pactl subscribe` if it exits. Array properties are only reassigned when
+`JSON.stringify` differs, to avoid needless re-layout of lists.
 
-Array properties are only reassigned when `JSON.stringify` differs, to avoid needless re-layout of lists.
-
-## 4. Music player pipeline
+## 5. Music player pipeline
 
 ```
 YouTube Music Desktop 2 (ytmdesktop2), API on http://127.0.0.1:13091
-   ▲  POST /track/<cmd>  (toggle-play-state, next, prev, seek, like, dislike, shuffle, repeat)
-   │        ▲ root.ytmCommand(cmd, body)  ◄── YtmPanel buttons / seek bar
+   ▲  POST /track/<cmd>      toggle-play-state, next, prev, seek, like, dislike, shuffle, repeat
+   │  POST /track/volume     {volume} to set, no body to read back
+   │        ▲ root.ytmCommand() / ytmSetVolume() / ytmNudgeVolume()  ◄── YtmPanel, YtmPill scroll
    │
-   ▼  GET /track/state every 500ms (2s while unreachable), GET /track when the track id changes
-shell.qml ytmPoll()  (XMLHttpRequest, no helper script)
+   ▼  GET /track/state   every 500ms (2s while unreachable)
+   ▼  GET /track         when the track id changes (title, artist, videoId)
+   ▼  GET /nav/queue     when the queue overlay is opened, and on track change after that
+shell.qml ytmPoll() / ytmFetchQueue()   (XMLHttpRequest, no helper script)
    ▼
 ShellRoot.ytm*  ──►  YtmPill (bar)  ──click──►  YtmPanel (player card)
-                      cover: GET /track/thumbnail?id=<videoId>
+                      cover art: GET /track/thumbnail?id=<videoId>, served from the app's own cache
 ```
 
-`ytmAvailable` is false when the API does not answer, `/track/state` is null, or the track has no title.
+`ytmAvailable` is false when the API does not answer, `/track/state` is null, or the track has no
+title. Volume is not part of `/track/state`, so it is read from the volume endpoint instead.
 
-## 5. Known issues and TODO
+## 6. Known issues and TODO
 
 Bugs, unfinished features and cleanups, with priority scores, are tracked in [`TODO.md`](TODO.md).
