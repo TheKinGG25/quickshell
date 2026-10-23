@@ -25,6 +25,8 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | How a workspace switch is sent | `shell.qml` → `switchDesktop()` (branches on `root.hyprland`) |
 | How a window is focused | `shell.qml` → `focusWindow()` (branches on `root.hyprland`) |
 | Hyprland workspace grid ([n,m] ids, keybinds, monitor hotplug) | `~/.config/hypr/grid.lua` (Hyprland config, not this repo) |
+| Look of the Meta+Tab workspace overview (colors, gap, radius, animation) | `Overview.qml` → Tweakables |
+| Overview keys / zoom range (Meta+Tab, arrows, Ctrl+= / Ctrl+-, Enter / Escape) | `~/.config/hypr/keybinds.lua` ("overview" submap), `grid.lua` → `ZOOM_*` |
 | See each popup's hover area on screen | `shell.qml` → `debugPopups: true` |
 | Pill order | `Right.qml` |
 | A pill's colors, icons, scroll step | `VolumePill.qml` / `BatteryPill.qml` / `YtmPill.qml` → Tweakables |
@@ -80,7 +82,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 `shell.qml` is the single root (`ShellRoot`, id `shellRoot`) that owns **all global state** as properties:
 
 - Constants: `fontFamily`, `fontSize`, `barHeight`
-- Compositor: `hyprland` (bool), `compositor` ("Hyprland" / "KWin"), `windowsScript`, `hyprGrid` (Hyprland workspace grid state), plus `switchDesktop(n)`, `focusWindow(id)`, `gridM(screenName, n)`, `refreshWindows()`
+- Compositor: `hyprland` (bool), `compositor` ("Hyprland" / "KWin"), `windowsScript`, `hyprGrid` (Hyprland workspace grid state), plus `switchDesktop(n)`, `focusWindow(id)`, `gridM(screenName, n)`, `gridGo(screenName, n, m)`, `closeOverview()`, `refreshWindows()`
 - Debug: `debugPopups` (draws each popup's hover area)
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`, `ytmVolume` (0-100), `ytmQueue[]`; functions `ytmCommand(cmd, body)`, `ytmReadVolume()`, `ytmSetVolume(v)`, `ytmNudgeVolume(up)`, `ytmFetchQueue()`
@@ -103,7 +105,7 @@ Polling cadence (all in `shell.qml`):
 
 ### Component instantiation
 
-All top-level windows (Bar, VolumeSlider, PowerMenu, WindowMenu, PowerProfileMenu, YtmPanel, Clipboard) are created once **per screen** via:
+All top-level windows (Bar, VolumeSlider, PowerMenu, WindowMenu, PowerProfileMenu, YtmPanel, Clipboard, and Overview under Hyprland) are created once **per screen** via:
 
 ```qml
 Variants {
@@ -137,8 +139,21 @@ everything workspace-related branches on it:
 Hyprland runs a 2D workspace grid, defined in `~/.config/hypr/grid.lua`: workspace `[n,m]`, n = 1..6
 switched on every monitor at once, m per monitor (Hyprland id = `monitor_index*10000 + n*1000 + m`).
 grid.lua rewrites `$XDG_RUNTIME_DIR/hypr-grid.json` on every change:
-`{"n": 2, "screens": {"eDP-2": [m for n = 1..6], "HDMI-A-1": [...]}}`. `shell.qml` watches it into
-`hyprGrid`; `Left.qml` labels each number `[n,m]` for its own screen through `root.gridM()`.
+`{"n": 2, "overview": {"open": false, "zoom": 3}, "screens": {"eDP-2": {"index": 0, "m": [m per n],
+"rows": [stack + empty slot per n]}}}`. `shell.qml` watches it into `hyprGrid`; `Left.qml` labels
+each number `[n,m]` for its own screen through `root.gridM()`.
+
+**Overview (Meta+Tab).** `Overview.qml` is an Overlay-layer window per screen that draws that
+screen's grid while `hyprGrid.overview.open`: columns n = 1..6, the current n in the middle; each
+column slides so the workspace its bar label shows (`m[n]`) sits on the middle row, and empty
+workspaces are not drawn. Live window previews from `ScreencopyView` on each `HyprlandToplevel.wayland`, placed
+from `lastIpcObject.at` / `size` (refreshed with `Hyprland.refreshToplevels()` on Hyprland events
+while open). `zoom` = workspaces visible across (3 = 100%). The keys are all in Hyprland: Meta+Tab
+calls `grid.toggle_overview()`, which also enters the `overview` submap: arrows move through the
+grid (`grid.step_n`, `grid.browse_m`, which skips empty workspaces), Ctrl+= / Ctrl+- zoom
+(`grid.zoom`), Enter / Escape / Meta+Tab close, and a `catchall` bind swallows every other key so
+neither the focused window nor the normal binds see it. The window takes no keyboard focus. A click on a workspace calls `root.gridGo()`, the
+backdrop `root.closeOverview()`.
 
 **Dispatch syntax depends on the Hyprland config language.** Quickshell sends the string as
 `return hl.dispatch(<string>)`. With a Lua config (`Hyprland.usingLua`, true on 0.56 here) a bare

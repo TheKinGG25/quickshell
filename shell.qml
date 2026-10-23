@@ -429,8 +429,10 @@ ShellRoot {
 
     // Hyprland runs a 2D workspace grid (~/.config/hypr/grid.lua): [n,m], n = 1..6 switched on
     // every monitor at once, m per monitor. grid.lua rewrites this file on every change:
-    // {"n": 2, "screens": {"eDP-2": [m for n = 1..6], "HDMI-A-1": [...]}}. No timer needed.
-    property var hyprGrid: ({ n: 1, screens: {} })
+    // {"n": 2, "overview": {"open": false, "zoom": 3},
+    //  "screens": {"eDP-2": {"index": 0, "m": [m per n], "rows": [stack + empty slot per n]}}}
+    // No timer needed. Overview.qml draws the Meta+Tab view from it.
+    property var hyprGrid: ({ n: 1, overview: { open: false, zoom: 3 }, screens: {} })
     FileView {
         path: shellRoot.hyprland ? Quickshell.env("XDG_RUNTIME_DIR") + "/hypr-grid.json" : ""
         watchChanges: true
@@ -446,8 +448,16 @@ ShellRoot {
 
     // The m shown as [n,m] on a screen's bar: current m for the active n, last visited for the rest
     function gridM(screenName, n) {
-        var ms = hyprGrid.screens[screenName]
-        return ms && ms[n - 1] ? ms[n - 1] : 1
+        var s = hyprGrid.screens[screenName]
+        return s && s.m && s.m[n - 1] ? s.m[n - 1] : 1
+    }
+
+    // Overview.qml: a click on [n,m] goes there (n on every monitor, m on that screen) and closes
+    function gridGo(screenName, n, m) {
+        Hyprland.dispatch("function() grid.go(\"" + screenName + "\", " + n + ", " + m + ") grid.close_overview() end")
+    }
+    function closeOverview() {
+        Hyprland.dispatch("function() grid.close_overview() end")
     }
 
     // Re-read the window list now (EditDialogWindow calls this after saving an icon / name)
@@ -545,6 +555,15 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
         Bar {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
+    // Hyprland only: the Meta+Tab exploded view of each screen's workspace grid
+    Variants {
+        model: shellRoot.hyprland ? Quickshell.screens : []
+        Overview {
             required property var modelData
             root: shellRoot
             screen: modelData

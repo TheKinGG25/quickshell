@@ -62,6 +62,7 @@ Rules the code follows:
 | `shell.qml` | `ShellRoot` | Global state, compositor detection, every poller and timer, the music API client, instantiates each window per screen |
 | `Bar.qml` | `PanelWindow` (Top layer, top/left/right) | `root.barHeight` (30px) translucent strip holding Left / Center / Right. Publishes its own screen's YtmPill position through `setYtmPillGeom()` so YtmPanel knows where to grow from |
 | `Left.qml` | `Row` | `root.desktopCount` desktop / workspace numbers, current one white and bold, on Hyprland labelled `[n,m]` with this screen's m (`root.gridM`). Click → `root.switchDesktop(n)` |
+| `Overview.qml` | `PanelWindow` (Overlay, full screen, no keyboard focus), Hyprland only | Meta+Tab exploded view of this screen's workspace grid from `root.hyprGrid`: live window previews (`ScreencopyView`) per `[n,m]`, current one outlined, current n in the middle column, every column's bar workspace on the middle row, empty workspaces hidden, `zoom` workspaces across. Click → `root.gridGo()` |
 | `Center.qml` | `MouseArea` | Canvas ring showing progress through the 12h half-day (blue AM, peach PM) + `hh:mm:ss AP \| dddd - dd/MM/yy`. Left click → WindowMenu (KWin only), middle → PowerMenu |
 | `Right.qml` | `Row` | `YtmPill`, `VolumePill`, `BatteryPill` |
 | `YtmPill.qml` | `Rectangle`, `ytmWidth` x `pillHeight` (280x22) | Cover thumbnail, title, artist, 2px progress line. Hidden unless `ytmAvailable`, and transparent while YtmPanel is open on this screen. Click toggles the panel, scroll changes the app's volume |
