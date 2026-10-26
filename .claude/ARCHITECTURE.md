@@ -73,6 +73,7 @@ Rules the code follows:
 | `PowerProfileMenu.qml` | `PanelWindow` (Overlay, top-right) | One row per entry in its `profiles` list, click runs `powerprofilesctl set <profile>` |
 | `PowerMenu.qml` | `PanelWindow` (Overlay, centered) | One button per entry in its `buttons` list (icon, label, color, command): shutdown / restart / sleep / lock |
 | `WindowMenu.qml` | `PanelWindow` (Overlay, centered, keyboard OnDemand) | Desktop tabs (`root.desktopCount`) + the windows on the selected one, from `root.windows`. Click → `root.focusWindow(id)`. F2 on a hovered row opens EditDialogWindow. Closes 200ms after the mouse leaves, unless the dialog is open |
+| `Notifications.qml` | `PanelWindow` (Overlay, top-right under the bar, `mask` on the cards) | Notification popups from `root.notifPopups` (the `NotificationServer` in `shell.qml`), same on every screen. Slide in from the right, out after `notifTimeoutMs`. Discord cards: avatar + badge, server and #channel, user, message. Nothing while `root.dnd` |
 | `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Three placeholder rows, the one at `root.clipboardIndex` highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
 | `EditDialogWindow.qml` | `Window` | Edit the icon and display name for a window class, or blacklist it. Writes through `save-icons-config.py` / `add-to-blacklist.py`, then calls `root.refreshWindows()` |
 

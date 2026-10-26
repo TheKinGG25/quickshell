@@ -42,6 +42,9 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Music player colors | `YtmPanel.qml` → "Colors": `accent` (red), `ink` (on the red), `active`; the rest derive from them |
 | Blurred cover art behind the player | `YtmPanel.qml` → `artBgStrength` (0 = off), `artBgBlur`, `artBgLift` |
 | How many upcoming tracks the queue lists | `shell.qml` → `ytmQueueMax` |
+| Notification popup time / animation / max shown | `shell.qml` → "Notifications" (`notifTimeoutMs`, `notifAnimMs`, `notifMax`) |
+| Notification card look, Discord layout | `Notifications.qml` → Tweakables, `discordInfo()` |
+| Do Not Disturb symbol in the clock | `Center.qml` → `dndSeparator` |
 
 Conventions when adding code:
 
@@ -207,7 +210,16 @@ necessarily apply on the other; `icons.json` just gains an entry per class.
 | `PowerProfileMenu.qml` | BatteryPill middle click | performance / balanced / power-saver |
 | `WindowMenu.qml` | Clock left click | Open windows grouped by desktop; click focuses, F2 opens `EditDialogWindow.qml` |
 | `YtmPanel.qml` | YtmPill left click | Music player: cover, title, artist, seek bar + times, prev / play-pause / next, side column (like, dislike, shuffle, repeat, queue, volume) |
+| `Notifications.qml` | any app (Quickshell is the notification daemon) | Popups top right under the bar on every monitor, 5 s each, no history. Discord: avatar, user, server, #channel, message |
 | `Clipboard.qml` | nothing yet (`clipboardOpen` is never set) | WIP clipboard picker: 3 placeholder rows, highlighted row follows `root.clipboardIndex` |
+
+### Notifications and Do Not Disturb
+
+`shell.qml` runs a `NotificationServer` (org.freedesktop.Notifications, so no mako / dunst). Each new notification becomes an entry in `root.notifPopups` (newest first, at most `notifMax`); a 100 ms timer slides it out after `notifTimeoutMs` (reset while hovered), then removes it and calls `expire()`. Left click runs the app's `default` action, right click dismisses.
+
+Do Not Disturb (`root.dnd`) drops notifications unseen and swaps the clock's `|` for a bell-off icon. It is toggled only over IPC: `qs ipc call notifications toggleDnd` (also `setDnd <bool>`, `isDnd`), which the vicinae script command `~/.local/share/vicinae/scripts/toggle-dnd.sh` ("Toggle Do Not Disturb") calls. The state is kept in `$XDG_RUNTIME_DIR/quickshell-dnd`, so it survives a quickshell restart but not a reboot.
+
+Discord's summary is `user (#channel, Server)` (`user (Group)` for group DMs, plain `user` for DMs); `Notifications.qml` → `discordInfo()` splits it, and the sender's avatar comes in as the notification image.
 
 ### Scripts (`scripts/`)
 

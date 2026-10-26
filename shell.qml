@@ -11,6 +11,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Io
+import Quickshell.Services.Notifications
 import QtQuick
 
 ShellRoot {
@@ -71,6 +72,11 @@ ShellRoot {
     property real ytmResyncSeconds: 1.5 // a poll overrides the local progress only if they differ by more (seek, track change)
     property int ytmVolumeStep: 5       // % per scroll notch on YtmPill (the app's own volume)
     property int ytmQueueMax: 20        // how many upcoming tracks to keep from the queue
+
+    // ── Notifications ── popups only, no history (Notifications.qml draws them)
+    property int notifTimeoutMs: 5000   // how long a popup stays (paused while the mouse is on it)
+    property int notifAnimMs: 140       // slide in / out
+    property int notifMax: 5            // older popups are dropped beyond this
 
     // ── Polling intervals (ms) ──
     property int desktopPollMs: 200     // current desktop (Left.qml highlight)
@@ -136,6 +142,92 @@ ShellRoot {
         ytmApiUrl + "/track/thumbnail?id=" + ytmVideoId + (ytmApiToken ? "&token=" + ytmApiToken : "")
     property int clipboardIndex: 0
     property bool clipboardRunning: false
+
+    // ── Notifications ──
+    // Quickshell is the notification daemon (org.freedesktop.Notifications). Each popup is an entry
+    // {notif, until, leaving, gone, hovered} in notifPopups, newest first. Expired ones slide out,
+    // then get removed and expire()d, so nothing is kept. Do Not Disturb drops them unseen.
+    property bool dnd: false
+    property var notifPopups: []
+
+    NotificationServer {
+        keepOnReload: false
+        imageSupported: true
+        actionsSupported: true
+        bodyMarkupSupported: true
+        onNotification: n => {
+            if (shellRoot.dnd) return          // left untracked = discarded
+            n.tracked = true
+            var e = notifEntry.createObject(shellRoot, { notif: n, until: Date.now() + notifTimeoutMs })
+            n.closed.connect(() => shellRoot.closeNotif(e, false))
+            var next = [e].concat(notifPopups)
+            for (var i = notifMax; i < next.length; i++) closeNotif(next[i], false)
+            notifPopups = next
+        }
+    }
+
+    Component {
+        id: notifEntry
+        QtObject {
+            property var notif
+            property real until: 0      // starts sliding out at this time (ms)
+            property real gone: 0       // removed at this time, once leaving
+            property bool leaving: false
+            property bool dismissed: false
+            property int hovered: 0     // cards under the mouse (one per screen at most)
+        }
+    }
+
+    // Slide a popup out. dismissed = closed by the user (click) rather than timed out
+    function closeNotif(e, dismissed) {
+        if (!e || e.leaving) return
+        e.leaving = true
+        e.dismissed = dismissed
+        e.gone = Date.now() + 2 * notifAnimMs   // slide out, then close the gap
+    }
+
+    Timer {
+        interval: 100; repeat: true
+        running: shellRoot.notifPopups.length > 0
+        onTriggered: {
+            var now = Date.now(), keep = []
+            for (var i = 0; i < notifPopups.length; i++) {
+                var e = notifPopups[i]
+                if (e.hovered > 0 && !e.leaving) e.until = now + notifTimeoutMs
+                else if (!e.leaving && now >= e.until) closeNotif(e, false)
+                if (e.leaving && now >= e.gone) {
+                    if (e.notif && e.notif.tracked) e.dismissed ? e.notif.dismiss() : e.notif.expire()
+                    e.destroy(1000)     // the cards let go of it first
+                } else keep.push(e)
+            }
+            if (keep.length !== notifPopups.length) notifPopups = keep
+        }
+    }
+
+    // Do Not Disturb survives a quickshell restart (not a reboot: it lives in $XDG_RUNTIME_DIR)
+    function setDnd(on) {
+        dnd = on
+        dndFile.setText(on ? "1" : "0")
+        if (on) for (var i = 0; i < notifPopups.length; i++) closeNotif(notifPopups[i], false)
+    }
+    FileView {
+        id: dndFile
+        path: Quickshell.env("XDG_RUNTIME_DIR") + "/quickshell-dnd"
+        printErrors: false
+        onLoaded: shellRoot.dnd = text().trim() === "1"
+    }
+
+    // `qs ipc call notifications toggleDnd` (vicinae: "Toggle Do Not Disturb",
+    // ~/.local/share/vicinae/scripts/toggle-dnd.sh)
+    IpcHandler {
+        target: "notifications"
+        function toggleDnd(): string {
+            shellRoot.setDnd(!shellRoot.dnd)
+            return shellRoot.dnd ? "Do Not Disturb on" : "Do Not Disturb off"
+        }
+        function setDnd(on: bool): void { shellRoot.setDnd(on) }
+        function isDnd(): bool { return shellRoot.dnd }
+    }
 
     // ── Processes ──
 
@@ -564,6 +656,15 @@ ShellRoot {
     Variants {
         model: shellRoot.hyprland ? Quickshell.screens : []
         Overview {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        Notifications {
             required property var modelData
             root: shellRoot
             screen: modelData

@@ -14,6 +14,7 @@ MouseArea {
     property string timeFormat: "hh:mm:ss AP"       // Qt.formatTime syntax, e.g. "HH:mm" for 24h
     property string dateFormat: "dddd - dd/MM/yy"   // Qt.formatDate syntax
     property string separator: " | "                // between time and date
+    property string dndSeparator: " \u{f009b} "      // replaces it while Do Not Disturb is on (nf-md-bell_off)
     property color clockColor: "white"
     property int clockFontSize: 14
     property int arcSize: 22                        // ring canvas size (px)
@@ -38,7 +39,7 @@ MouseArea {
 
     function clockString() {
         var now = new Date()
-        return Qt.formatTime(now, timeFormat) + separator + Qt.formatDate(now, dateFormat)
+        return Qt.formatTime(now, timeFormat) + (root.dnd ? dndSeparator : separator) + Qt.formatDate(now, dateFormat)
     }
 
     Row {
@@ -107,6 +108,10 @@ MouseArea {
         }
 
         Component.onCompleted: text = centerArea.clockString()
+        Connections {
+            target: centerArea.root
+            function onDndChanged() { clockText.text = centerArea.clockString() }
+        }
     }
 }
 }
