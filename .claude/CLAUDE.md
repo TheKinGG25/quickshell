@@ -85,7 +85,7 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 `shell.qml` is the single root (`ShellRoot`, id `shellRoot`) that owns **all global state** as properties:
 
 - Constants: `fontFamily`, `fontSize`, `barHeight`
-- Compositor: `hyprland` (bool), `compositor` ("Hyprland" / "KWin"), `windowsScript`, `hyprGrid` (Hyprland workspace grid state), plus `switchDesktop(n)`, `focusWindow(id)`, `gridM(screenName, n)`, `gridGo(screenName, n, m)`, `closeOverview()`, `refreshWindows()`
+- Compositor: `hyprland` (bool), `compositor` ("Hyprland" / "KWin"), `windowsScript`, `hyprGrid` (Hyprland workspace grid state), plus `switchDesktop(n)`, `focusWindow(id)`, `gridM(screenName, n)`, `gridGo(screenName, n, m)`, `gridScroll(screenName, up)`, `closeOverview()`, `refreshWindows()`
 - Debug: `debugPopups` (draws each popup's hover area)
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`, `ytmVolume` (0-100), `ytmQueue[]`; functions `ytmCommand(cmd, body)`, `ytmReadVolume()`, `ytmSetVolume(v)`, `ytmNudgeVolume(up)`, `ytmFetchQueue()`
@@ -177,7 +177,7 @@ necessarily apply on the other; `icons.json` just gains an entry per class.
 
 `Bar.qml` → `Left | Center (centered) | Right`
 
-- **Left.qml** - `root.desktopCount` desktop / workspace numbers; clicking calls `root.switchDesktop(n)`, which picks the right mechanism for the running compositor. On Hyprland each reads `[n,m]` with this screen's m (`root.gridM`)
+- **Left.qml** - `root.desktopCount` desktop / workspace numbers; clicking calls `root.switchDesktop(n)`, which picks the right mechanism for the running compositor. On Hyprland each reads `[n,m]` with this screen's m (`root.gridM`), and the scroll wheel over them moves this screen up / down its stack (`root.gridScroll` → `grid.scroll_m`, one step per `SCROLL_COOLDOWN` in grid.lua)
 - **Center.qml** - Clock with 12h arc indicator (blue AM / peach PM); left-click opens WindowMenu (KWin only), middle-click opens PowerMenu
 - **Right.qml** - Row of pills: `YtmPill | VolumePill | BatteryPill`
 

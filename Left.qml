@@ -1,6 +1,8 @@
 // Left.qml - virtual desktop / workspace numbers on the left of the bar, one per screen.
 // Click a number to switch: root.switchDesktop() in shell.qml picks the right way for the
 // running compositor (Hyprland grid.lua, or scripts/kwin-desktop.py on Plasma).
+// Hyprland only: the scroll wheel over the numbers moves this screen up / down its stack
+// (root.gridScroll -> grid.scroll_m).
 // How many numbers: root.desktopCount in shell.qml. On Hyprland each one reads [n,m], with m
 // taken from this screen's own grid state (root.gridM).
 
@@ -36,6 +38,11 @@ Row {
                 height: leftRow.clickHeight
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.switchDesktop(index + 1)
+                // Hyprland: the wheel moves this screen up / down its stack (grid.lua scroll_m)
+                onWheel: wheel => {
+                    if (root.hyprland && leftRow.screen && wheel.angleDelta.y !== 0)
+                        root.gridScroll(leftRow.screen.name, wheel.angleDelta.y > 0)
+                }
             }
         }
     }

@@ -548,6 +548,10 @@ ShellRoot {
     function gridGo(screenName, n, m) {
         Hyprland.dispatch("function() grid.go(\"" + screenName + "\", " + n + ", " + m + ") grid.close_overview() end")
     }
+    // Left.qml: the scroll wheel over a bar's numbers moves that screen up / down its stack
+    function gridScroll(screenName, up) {
+        Hyprland.dispatch("function() grid.scroll_m(\"" + (up ? "up" : "down") + "\", \"" + screenName + "\") end")
+    }
     function closeOverview() {
         Hyprland.dispatch("function() grid.close_overview() end")
     }
