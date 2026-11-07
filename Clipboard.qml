@@ -1,7 +1,7 @@
 // Clipboard.qml - clipboard history picker (WORK IN PROGRESS, not working yet).
 // Meant to list recent copies, highlight root.clipboardIndex (moved by scripts/clipboard.py)
 // and paste the chosen one. Right now: 3 placeholder rows and nothing opens it.
-// What is missing is listed in .claude/TODO.md.
+// What is missing is listed in ~/Documents/claude-notes/todo.md.
 
 import Quickshell
 import Quickshell.Wayland

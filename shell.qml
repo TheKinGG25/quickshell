@@ -490,7 +490,7 @@ ShellRoot {
         }
     }
 
-    // Clipboard keyboard reader (work in progress, not started yet; see .claude/TODO.md)
+    // Clipboard keyboard reader (work in progress, not started yet; see ~/Documents/claude-notes/todo.md)
     Process {
         id: clipboardProcess
         command: ["python3", scriptsDir + "/clipboard.py"]
@@ -639,7 +639,7 @@ ShellRoot {
         appVolumesProcess.running = true
         windowsProcess.running = true
         powerProfileProcess.running = true
-        // clipboardProcess is not started yet: the clipboard popup is unfinished (see .claude/TODO.md)
+        // clipboardProcess is not started yet: the clipboard popup is unfinished (see ~/Documents/claude-notes/todo.md)
     }
 
     // ── Windows: one of each per monitor ── remove a block to disable that feature

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-clipboard.py - keyboard reader for the clipboard popup (WORK IN PROGRESS, see .claude/TODO.md).
+clipboard.py - keyboard reader for the clipboard popup (WORK IN PROGRESS, see ~/Documents/claude-notes/todo.md).
 
 Reads the first keyboard via evdev (needs read access to /dev/input, i.e. the `input` group).
 Prints {"running": true, "index": n} on every Up / Down, then {"running": false, ...} on Enter and exits.

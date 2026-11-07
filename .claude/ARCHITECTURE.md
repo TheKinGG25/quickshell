@@ -176,4 +176,4 @@ title. Volume is not part of `/track/state`, so it is read from the volume endpo
 
 ## 6. Known issues and TODO
 
-Bugs, unfinished features and cleanups, with priority scores, are tracked in [`TODO.md`](TODO.md).
+Bugs, unfinished features and cleanups, with priority scores, are tracked in the "Quickshell bar" section of `~/Documents/claude-notes/todo.md`.

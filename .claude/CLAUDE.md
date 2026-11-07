@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Docs live in `.claude/`:
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) - deeper walkthrough: data flow diagrams, per-file responsibilities, polling intervals, music pipeline
-- [`TODO.md`](TODO.md) - bugs, unfinished features and cleanups with a priority score. Update it when you fix or find something.
+- `~/Documents/claude-notes/todo.md` - global to-do list, outside this repo. Bugs, unfinished features and cleanups with a priority score are in its "Quickshell bar" section. Update it when you fix or find something.
 
 Keep every Markdown file for this project inside `.claude/`.
 
