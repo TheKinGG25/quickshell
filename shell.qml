@@ -140,8 +140,6 @@ ShellRoot {
     // Cover art served by the app itself (cached on disk); ?id= busts the image cache on track change
     property string ytmArt: ytmVideoId === "" ? "" :
         ytmApiUrl + "/track/thumbnail?id=" + ytmVideoId + (ytmApiToken ? "&token=" + ytmApiToken : "")
-    property int clipboardIndex: 0
-    property bool clipboardRunning: false
 
     // ── Notifications ──
     // Quickshell is the notification daemon (org.freedesktop.Notifications). Each popup is an entry
@@ -490,24 +488,6 @@ ShellRoot {
         }
     }
 
-    // Clipboard keyboard reader (work in progress, not started yet; see ~/Documents/claude-notes/todo.md)
-    Process {
-        id: clipboardProcess
-        command: ["python3", scriptsDir + "/clipboard.py"]
-        stdout: SplitParser {
-            onRead: (line) => {
-                const data = JSON.parse(line)
-                root.clipboardRunning = data.running
-                root.clipboardIndex = Math.max(0, Math.min(data.index, listView.count - 1))
-
-                if (!data.running) {
-                    // Enter was pressed: act on the selected entry, then close
-                    selectEntry(root.clipboardIndex)
-                }
-            }
-        }
-    }
-
     // ── Timers ──
 
     // Current desktop. KWin only: polling DBus is the only way to notice a desktop switch there.
@@ -643,7 +623,6 @@ ShellRoot {
         appVolumesProcess.running = true
         windowsProcess.running = true
         powerProfileProcess.running = true
-        // clipboardProcess is not started yet: the clipboard popup is unfinished (see ~/Documents/claude-notes/todo.md)
     }
 
     // ── Windows: one of each per monitor ── remove a block to disable that feature
@@ -714,15 +693,6 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
         YtmPanel {
-            required property var modelData
-            root: shellRoot
-            screen: modelData
-        }
-    }
-
-    Variants {
-        model: Quickshell.screens
-        Clipboard {
             required property var modelData
             root: shellRoot
             screen: modelData

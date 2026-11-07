@@ -16,7 +16,7 @@ small Python / Bash helpers for the rest.
    │  Process + SplitParser, XMLHttpRequest, Hyprland bindings                           │
    │                                                                                     │
    │  state:   currentDesktop, volume*, battery*, powerProfile, appVolumes[], windows[], │
-   │           ytm* (title, art, progress, volume, queue[]), clipboard*                  │
+   │           ytm* (title, art, progress, volume, queue[])                              │
    │  facts:   hyprland / compositor, windowsScript, ytmPillGeom (per monitor)           │
    │  actions: switchDesktop(n), focusWindow(id), refreshWindows(), ytmCommand(),        │
    │           ytmSetVolume(), ytmFetchQueue()                                           │
@@ -26,7 +26,7 @@ small Python / Bash helpers for the rest.
             Variants { model: Quickshell.screens } → one copy of each window per monitor
                                        │
    ┌──────────────┬──────────────┬─────┴────────┬──────────────────┬──────────┬───────────┐
-   Bar         VolumeSlider   PowerMenu     PowerProfileMenu   WindowMenu   YtmPanel   Clipboard
+   Bar         VolumeSlider   PowerMenu     PowerProfileMenu   WindowMenu   YtmPanel
    │                                                            └─ EditDialogWindow
    ├─ Left    (desktop / workspace numbers)
    ├─ Center  (clock + arc)
@@ -74,7 +74,6 @@ Rules the code follows:
 | `PowerMenu.qml` | `PanelWindow` (Overlay, centered) | One button per entry in its `buttons` list (icon, label, color, command): shutdown / restart / sleep / lock |
 | `WindowMenu.qml` | `PanelWindow` (Overlay, centered, keyboard OnDemand) | Desktop tabs (`root.desktopCount`) + the windows on the selected one, from `root.windows`. Click → `root.focusWindow(id)`. F2 on a hovered row opens EditDialogWindow. Closes 200ms after the mouse leaves, unless the dialog is open |
 | `Notifications.qml` | `PanelWindow` (Overlay, top-right under the bar, `mask` on the cards) | Notification popups from `root.notifPopups` (the `NotificationServer` in `shell.qml`), same on every screen. Slide in from the right, out after `notifTimeoutMs`. Discord cards: avatar + badge, server and #channel, user, message. Nothing while `root.dnd` |
-| `Clipboard.qml` | `PanelWindow` (top-right, keyboard Exclusive) | WIP clipboard picker. Three placeholder rows, the one at `root.clipboardIndex` highlighted. Visible only when its own `clipboardOpen` is true, which nothing sets yet |
 | `EditDialogWindow.qml` | `Window` | Edit the icon and display name for a window class, or blacklist it. Writes through `save-icons-config.py` / `add-to-blacklist.py`, then calls `root.refreshWindows()` |
 
 ### Components (`components/`)
@@ -87,7 +86,7 @@ Shared building blocks, imported with `import "components"`.
 | `VolumeBarSlider.qml` | Slider (0..100 by default, any range) with a SliderTrack background, a thin handle and a scroll wheel; `onMoved` covers both drag and scroll | VolumeSlider (master + apps), YtmPanel seek bar |
 | `IconButton.qml` | Square button showing one Nerd Font `glyph`, with an `active` color and a state-layer hover / press | YtmPanel controls and side card |
 | `ValuePill.qml` | Colored pill, value text left, icon right | VolumePill, BatteryPill |
-| `PopupCard.qml` | Dark rounded card with a border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
+| `PopupCard.qml` | Dark rounded card with a border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, EditDialogWindow |
 | `DialogButton.qml` | Flat button with a hover color | EditDialogWindow |
 | `HoverDebug.qml` | Translucent outline of a popup's hover area, drawn only while `root.debugPopups` | every popup |
 
@@ -104,7 +103,6 @@ Each prints JSON or a plain value on stdout, which QML parses in a `SplitParser`
 | `app-volumes.py` | `shell.qml` (1s) | → `[{id, name, volume}]` parsed from `pactl list sink-inputs` |
 | `save-icons-config.py` | `EditDialogWindow.qml` | `<app_id> <icon> <name>` → updates `icons.json` |
 | `add-to-blacklist.py` | `EditDialogWindow.qml` | `<app_id>` → appends to the `icons.json` blacklist |
-| `clipboard.py` | `shell.qml` `clipboardProcess` (never started yet) | Reads the first keyboard via `evdev`; prints `{running, index}` on Up / Down, prints `running: false` and exits on Enter |
 | `volume-toggle-bt.sh` + `bt-config.sh` | `VolumePill.qml` | connect / disconnect `HEADPHONE_MAC` |
 | `icons.json` | `window_icons.py` | `iconMappings` keyed by the window class, plus `blacklist` |
 

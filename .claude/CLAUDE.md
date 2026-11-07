@@ -89,7 +89,6 @@ This is a Wayland desktop bar built with [QuickShell](https://quickshell.outfoxx
 - Debug: `debugPopups` (draws each popup's hover area)
 - System: `currentDesktop`, `volumeLevel`, `volumeMuted`, `headphonesActive`, `batteryLevel`, `batteryStatus`, `powerProfile`, `appVolumes[]`, `windows[]`
 - Music: `ytmAvailable`, `ytmPlaying`, `ytmTitle`, `ytmArtist`, `ytmArt`, `ytmProgress` (0-100), `ytmProgressSeconds`, `ytmDuration`, `ytmVideoId`, `ytmLiked`, `ytmDisliked`, `ytmLoop`, `ytmVolume` (0-100), `ytmQueue[]`; functions `ytmCommand(cmd, body)`, `ytmReadVolume()`, `ytmSetVolume(v)`, `ytmNudgeVolume(up)`, `ytmFetchQueue()`
-- Clipboard: `clipboardIndex`, `clipboardRunning` (fed by `clipboard.py`, work in progress)
 - Layout helpers: `ytmPillGeom` (YtmPill's position in the bar **per monitor**, `{"DP-1": {x, y}}`, written by each screen's Bar through `setYtmPillGeom(screenName, x, y)`), `ytmPanelScreen` (screen whose YtmPanel is showing; YtmPill hides there)
 - Popup visibility: `activeVolumeScreen`, `activePowerScreen`, `activePowerProfileScreen`, `activeWindowScreen`, `activeYtmScreen` (null = hidden, screen ref = show on that screen)
 
@@ -108,7 +107,7 @@ Polling cadence (all in `shell.qml`):
 
 ### Component instantiation
 
-All top-level windows (Bar, VolumeSlider, PowerMenu, WindowMenu, PowerProfileMenu, YtmPanel, Clipboard, and Overview under Hyprland) are created once **per screen** via:
+All top-level windows (Bar, VolumeSlider, PowerMenu, WindowMenu, PowerProfileMenu, YtmPanel, and Overview under Hyprland) are created once **per screen** via:
 
 ```qml
 Variants {
@@ -197,7 +196,7 @@ necessarily apply on the other; `icons.json` just gains an entry per class.
 | `VolumeBarSlider.qml` | slider (default 0..100): SliderTrack background, thin handle, scroll wheel (`onMoved` on drag and scroll) | VolumeSlider (master + apps), YtmPanel seek bar |
 | `IconButton.qml` | square button with one Nerd Font icon, active color, state-layer hover / press | YtmPanel controls + side column |
 | `ValuePill.qml` | colored pill, value text left, icon right | VolumePill, BatteryPill |
-| `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, Clipboard, EditDialogWindow |
+| `PopupCard.qml` | dark rounded card with border, theme colors | VolumeSlider, PowerMenu, PowerProfileMenu, WindowMenu, EditDialogWindow |
 | `DialogButton.qml` | flat button with hover color | EditDialogWindow |
 | `HoverDebug.qml` | translucent outline of a popup's hover area, shown while `root.debugPopups` | every popup |
 
@@ -211,7 +210,6 @@ necessarily apply on the other; `icons.json` just gains an entry per class.
 | `WindowMenu.qml` | Clock left click | Open windows grouped by desktop; click focuses, F2 opens `EditDialogWindow.qml` |
 | `YtmPanel.qml` | YtmPill left click | Music player: cover, title, artist, seek bar + times, prev / play-pause / next, side column (like, dislike, shuffle, repeat, queue, volume) |
 | `Notifications.qml` | any app (Quickshell is the notification daemon) | Popups top right under the bar on every monitor, 5 s each, no history. Discord: avatar, user, server, #channel, message |
-| `Clipboard.qml` | nothing yet (`clipboardOpen` is never set) | WIP clipboard picker: 3 placeholder rows, highlighted row follows `root.clipboardIndex` |
 
 ### Notifications and Do Not Disturb
 
@@ -234,7 +232,6 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 | `app-volumes.py` | prints JSON array of `{id, name, volume}` | per-app PulseAudio/PipeWire streams |
 | `save-icons-config.py` | `<app_id> <icon> <display_name>` | writes to `icons.json` |
 | `add-to-blacklist.py` | `<app_id>` | adds to `icons.json` blacklist |
-| `clipboard.py` | long-running, prints `{running, index}` per key press | Reads the keyboard via `evdev`: Up/Down move `index`, Enter prints `running: false` and exits |
 | `volume-toggle-bt.sh` | no args | connect/disconnect headphones via `bluetoothctl` |
 | `bt-config.sh` | sourced | defines `HEADPHONE_MAC` |
 
@@ -281,11 +278,10 @@ The window list enrichment pipeline in `kwin-windows.py` looks up each window's 
 - `powerprofilesctl` - power profile get/set
 - `systemctl` / `loginctl` - power menu actions
 - YouTube Music Desktop 2 (`ytmdesktop2`) with its API enabled - music player
-- `python-evdev` - keyboard input for `clipboard.py` (needs read access to `/dev/input/event*`)
 - `JetBrainsMono Nerd Font` - required for all icons (Nerd Font codepoints used throughout)
 
 QML `Process` commands build script paths from `root.scriptsDir`; never hardcode `/home/...` paths in components.
 
 ### Color theme
 
-Catppuccin Mocha, defined once in `shell.qml` → "Theme" (`root.popupBg`, `root.colText`, `root.colBlue`, ...). Pills keep their own status colors in their Tweakables (battery green→red, volume blue/pink/grey, YTM red `#ff4444`). `EditDialogWindow.qml` and `Clipboard.qml` still use their own literal colors.
+Catppuccin Mocha, defined once in `shell.qml` → "Theme" (`root.popupBg`, `root.colText`, `root.colBlue`, ...). Pills keep their own status colors in their Tweakables (battery green→red, volume blue/pink/grey, YTM red `#ff4444`). `EditDialogWindow.qml` still uses its own literal colors.
