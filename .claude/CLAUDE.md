@@ -48,6 +48,7 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Look of the lock screen **and** login screen (wallpaper blur, clock, password box) | `lockscreen/LockSurface.qml` → Tweakables, then `sudo greeter/install.sh` so the login screen gets the change |
 | Lock screen wallpapers / PAM handling | `LockScreen.qml` |
 | Login screen user, sessions (Hyprland / Plasma), wallpapers | `greeter.qml` → Tweakables, then `sudo greeter/install.sh` |
+| To-do viewer look, category labels / colors, sort orders | `TodoPanel.qml` → Tweakables |
 
 Conventions when adding code:
 
@@ -213,6 +214,7 @@ necessarily apply on the other; `icons.json` just gains an entry per class.
 | `WindowMenu.qml` | Clock left click | Open windows grouped by desktop; click focuses, F2 opens `EditDialogWindow.qml` |
 | `YtmPanel.qml` | YtmPill left click | Music player: cover, title, artist, seek bar + times, prev / play-pause / next, side column (like, dislike, shuffle, repeat, queue, volume) |
 | `Notifications.qml` | any app (Quickshell is the notification daemon) | Popups top right under the bar on every monitor, 5 s each, no history. Discord: avatar, user, server, #channel, message |
+| `TodoPanel.qml` | App launcher only: vicinae script "To-do list" (`~/.local/share/vicinae/scripts/todo.sh`) → `qs ipc call todo toggle` (also `close`); opens on the focused monitor (`root.todoScreen`) | `~/Documents/claude-notes/todo.md`, read live (`FileView` + `watchChanges`): category, score, name per row, sort button (Score / Category / Effort), click a row for its details, "Mark done" (click twice) runs `scripts/todo-done.py`. Keys: Up / Down (or J / K) select, Enter / Space expand, D mark done (twice), S / Tab sort, Escape close; a click outside also closes. Takes the screen name as `screenName` (reading `screen` inside the window caused a binding loop) |
 
 ### Lock screen and login screen
 
@@ -244,6 +246,7 @@ Scripts are invoked by QML `Process` objects. They print JSON (or a plain value)
 | `add-to-blacklist.py` | `<app_id>` | adds to `icons.json` blacklist |
 | `volume-toggle-bt.sh` | no args | connect/disconnect headphones via `bluetoothctl` |
 | `bt-config.sh` | sourced | defines `HEADPHONE_MAC` |
+| `todo-done.py` | `<ID>` | removes that task's table row and `### <ID> ·` details from `todo.md` (backup in `~/.cache/quickshell/todo.md.bak`); `TODO_FILE=<path>` to test on a copy |
 
 ### Music player (YtmPill / YtmPanel)
 

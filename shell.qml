@@ -90,6 +90,7 @@ ShellRoot {
     property var activePowerScreen: null
     property var activePowerProfileScreen: null
     property var activeYtmScreen: null
+    property string todoScreen: ""      // name of the screen TodoPanel shows on, "" = hidden (opened over IPC "todo")
     property var activeWindowScreen: null
     onActiveWindowScreenChanged: {
         if (activeWindowScreen) windowsProcess.running = true
@@ -225,6 +226,17 @@ ShellRoot {
         }
         function setDnd(on: bool): void { shellRoot.setDnd(on) }
         function isDnd(): bool { return shellRoot.dnd }
+    }
+
+    // To-do viewer (TodoPanel.qml), opened from the app launcher: `qs ipc call todo toggle`
+    IpcHandler {
+        target: "todo"
+        function toggle(): void {
+            const focused = shellRoot.hyprland && Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name
+                          : Quickshell.screens.length ? Quickshell.screens[0].name : ""
+            shellRoot.todoScreen = shellRoot.todoScreen ? "" : focused
+        }
+        function close(): void { shellRoot.todoScreen = "" }
     }
 
     // ── Processes ──
@@ -696,6 +708,16 @@ ShellRoot {
             required property var modelData
             root: shellRoot
             screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+        TodoPanel {
+            required property var modelData
+            root: shellRoot
+            screen: modelData
+            screenName: modelData.name
         }
     }
 
