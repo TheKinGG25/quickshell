@@ -45,6 +45,9 @@ Every file starts with a comment saying what it is, how it is opened and where i
 | Notification popup time / animation / max shown | `shell.qml` → "Notifications" (`notifTimeoutMs`, `notifAnimMs`, `notifMax`) |
 | Notification card look, Discord layout | `Notifications.qml` → Tweakables, `discordInfo()` |
 | Do Not Disturb symbol in the clock | `Center.qml` → `dndSeparator` |
+| Look of the lock screen **and** login screen (wallpaper blur, clock, password box) | `lockscreen/LockSurface.qml` → Tweakables, then `sudo greeter/install.sh` so the login screen gets the change |
+| Lock screen wallpapers / PAM handling | `LockScreen.qml` |
+| Login screen user, sessions (Hyprland / Plasma), wallpapers | `greeter.qml` → Tweakables, then `sudo greeter/install.sh` |
 
 Conventions when adding code:
 
@@ -210,6 +213,13 @@ necessarily apply on the other; `icons.json` just gains an entry per class.
 | `WindowMenu.qml` | Clock left click | Open windows grouped by desktop; click focuses, F2 opens `EditDialogWindow.qml` |
 | `YtmPanel.qml` | YtmPill left click | Music player: cover, title, artist, seek bar + times, prev / play-pause / next, side column (like, dislike, shuffle, repeat, queue, volume) |
 | `Notifications.qml` | any app (Quickshell is the notification daemon) | Popups top right under the bar on every monitor, 5 s each, no history. Discord: avatar, user, server, #channel, message |
+
+### Lock screen and login screen
+
+Both draw `lockscreen/LockSurface.qml` (blurred wallpaper, clock + date, login name, password dots), so they look the same. LockSurface only draws and reports keys (`typed` / `erased` / `cleared` / `submitted`); the caller keeps one password string for every monitor and checks it.
+
+- **Lock screen** (`LockScreen.qml`, created in `shell.qml`): a `WlSessionLock` with one surface per monitor, password checked by `PamContext` (`/etc/pam.d/login`). Locked over IPC only: `qs ipc call lock lock` (also `isLocked`), from Super+L (`~/.config/hypr/keybinds.lua`), the power menu, and hypridle (`~/.config/hypr/hypridle.conf`: on `loginctl lock-session` and before sleep). Hyprland has `misc.allow_session_lock_restore` on, so a restarted Quickshell can take over a lock whose client died.
+- **Login screen** (`greeter.qml`): a greetd greeter (`Quickshell.Services.Greetd`) that runs as the `greeter` user inside a small Hyprland (`greeter/hyprland.lua`). That user cannot read `~/.config`, so `sudo greeter/install.sh` copies `greeter.qml`, `lockscreen/`, the wallpapers and `hyprland.lua` to `/etc/greetd/quickshell`; **run it again after changing the look**. `--enable` also writes `/etc/greetd/config.toml`, `/etc/pam.d/greetd` (copied from Plasma Login Manager's so KWallet still unlocks) and swaps `plasmalogin` for `greetd`. `greeter.qml` lives at the top of the config folder because Quickshell refuses imports from outside the folder it was started from. Without greetd it runs in test mode (shows everything, cannot log in): `quickshell -p <copy>/greeter.qml`.
 
 ### Notifications and Do Not Disturb
 

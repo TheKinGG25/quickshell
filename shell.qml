@@ -698,4 +698,7 @@ ShellRoot {
             screen: modelData
         }
     }
+
+    // Lock screen (Super+L, power menu, before sleep): its own surface per monitor, see LockScreen.qml
+    LockScreen { root: shellRoot }
 }

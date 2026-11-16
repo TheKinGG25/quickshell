@@ -21,7 +21,7 @@ PanelWindow {
         { icon: "",    label: "Shutdown", color: root.colRed,    command: ["systemctl", "poweroff"] },
         { icon: "",    label: "Restart",  color: root.colPeach,  command: ["systemctl", "reboot"] },
         { icon: "\u{f04b2}", label: "Sleep",    color: root.colYellow, command: ["systemctl", "suspend"] },
-        { icon: "\u{f033e}", label: "Lock",     color: root.colBlue,   command: ["loginctl", "lock-session"] }
+        { icon: "\u{f033e}", label: "Lock",     color: root.colBlue,   command: ["qs", "ipc", "call", "lock", "lock"] }
     ]
     property int buttonSize: 90         // each button is a square of this size
     property int buttonSpacing: 28      // gap between buttons
