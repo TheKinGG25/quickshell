@@ -7,7 +7,8 @@
 #
 # The greeter runs as the `greeter` user, which cannot read ~/.config, so everything it needs is
 # copied to /etc/greetd/quickshell: greeter.qml, lockscreen/ (the look shared with the lock
-# screen), the wallpapers and the small Hyprland it runs in (hyprland.lua).
+# screen), the wallpapers, the small Hyprland it runs in (hyprland.lua) and session.sh, which
+# starts the chosen session with its output silenced.
 #
 # Go back to Plasma Login Manager:
 #   sudo systemctl disable greetd && sudo systemctl enable plasmalogin   (then reboot)
@@ -27,6 +28,7 @@ install -d -m 755 "$DEST" "$DEST/lockscreen" "$DEST/wallpapers"
 install -m 644 "$SRC/greeter.qml"                  "$DEST/greeter.qml"
 install -m 644 "$SRC/lockscreen/"*.qml             "$DEST/lockscreen/"
 install -m 644 "$SRC/greeter/hyprland.lua"         "$DEST/hyprland.lua"
+install -m 755 "$SRC/greeter/session.sh"           "$DEST/session.sh"
 install -m 644 "$WALL/normal_2560x1600/wallhaven-d8km7l_2560x1600.png"     "$DEST/wallpapers/normal.png"
 install -m 644 "$WALL/widescreen_2560x1080/wallhaven-d8km7l_2560x1080.png" "$DEST/wallpapers/wide.png"
 
@@ -42,7 +44,8 @@ cat > /etc/greetd/config.toml <<'EOF'
 vt = 1
 
 [default_session]
-command = "start-hyprland -- --config /etc/greetd/quickshell/hyprland.lua"
+# Output goes to /dev/null, else Hyprland's log shows as text on VT1 before and after the login screen
+command = "sh -c 'exec start-hyprland -- --config /etc/greetd/quickshell/hyprland.lua >/dev/null 2>&1'"
 user = "greeter"
 EOF
 

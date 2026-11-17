@@ -24,7 +24,7 @@ ShellRoot {
     }
     // Sessions to pick from (click the name at the bottom). The first one is the default.
     property var sessions: [
-        { name: "Hyprland", command: ["/usr/bin/start-hyprland"], desktop: "Hyprland" },
+        { name: "Hyprland", command: ["uwsm", "start", "-e", "-D", "Hyprland", "hyprland.desktop"], desktop: "Hyprland" },
         { name: "Plasma",   command: ["/usr/lib/plasma-dbus-run-session-if-needed", "/usr/bin/startplasma-wayland"], desktop: "KDE" }
     ]
     property color colSubtext: "#a6adc8"
@@ -61,7 +61,8 @@ ShellRoot {
         function onError(error) { greeter.fail(error) }
         function onReadyToLaunch() {
             const s = greeter.sessions[greeter.sessionIndex]
-            Greetd.launch(s.command, [
+            // Through greeter/session.sh, which silences the session's output (it would show as text on VT1)
+            Greetd.launch(["/etc/greetd/quickshell/session.sh"].concat(s.command), [
                 "XDG_SESSION_TYPE=wayland",
                 "XDG_CURRENT_DESKTOP=" + s.desktop,
                 "XDG_SESSION_DESKTOP=" + s.desktop
