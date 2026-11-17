@@ -38,6 +38,7 @@ Item {
     property color colError: "#f38ba8"
     property color fieldBg: "#99181825"     // password box (99 = ~60% opacity)
     property color fieldBorder: "#45475a"
+    property color fieldBorderFocused: "#e6e9f5"   // border while the keyboard is on this screen
     property real wallpaperBlur: 1.0        // 0..1 of blurMax
     property int wallpaperBlurMax: 64       // blur radius in px
     property real wallpaperDim: -0.35       // brightness, negative = darker
@@ -52,7 +53,22 @@ Item {
 
     focus: true
 
+    // Keep the keyboard on this item. When the lid closes, Hyprland takes the keyboard away from
+    // the lock surface and Qt drops this item's focus. After wake the keys reach the window again,
+    // but Qt never hands the focus back, so every key was ignored until a click. Whenever the
+    // focus is lost, take it back.
+    Component.onCompleted: forceActiveFocus()
+    Timer {
+        interval: 250
+        repeat: true
+        running: !surface.activeFocus
+        onTriggered: surface.forceActiveFocus()
+    }
+
     Rectangle { anchors.fill: parent; color: "#11111b" }   // shown until the wallpaper has loaded
+
+    // A click anywhere also takes focus back (sits below everything, so footer buttons still work)
+    MouseArea { anchors.fill: parent; onPressed: surface.forceActiveFocus() }
 
     Image {
         id: wallpaperImage
@@ -115,6 +131,7 @@ Item {
             border.width: 2
             border.color: surface.errorText ? surface.colError
                         : surface.busy ? surface.colAccent
+                        : surface.activeFocus ? surface.fieldBorderFocused
                         : surface.fieldBorder
             Behavior on border.color { ColorAnimation { duration: 150 } }
 
